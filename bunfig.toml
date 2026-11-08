@@ -1,0 +1,3 @@
+[test]
+# templates/ are scaffolded into new projects by the cli; their tests run there, not here.
+pathIgnorePatterns = ["templates/**"]

@@ -15,6 +15,7 @@ Web framework ขนาดเล็กสไตล์ [Hono](https://hono.dev) �
 ## สารบัญ
 
 - [ติดตั้ง](#ติดตั้ง)
+- [สร้างโปรเจกต์ใหม่ด้วย CLI](#สร้างโปรเจกต์ใหม่ด้วย-cli)
 - [เริ่มต้นใช้งาน](#เริ่มต้นใช้งาน)
 - [App](#app)
   - [ประกาศ route](#ประกาศ-route-get-post-put-patch-delete-options-all-on)
@@ -102,6 +103,30 @@ npm install zod                       # หรือ validation lib อื่น
 - **Bun ≥ 1.1** หรือ **Node ≥ 20**
 - **TypeScript ≥ 5.4** ควรเปิด `"strict": true` ด้วย ใช้ได้ทั้ง `"moduleResolution": "nodenext"` และ `"bundler"`
 - เป็น **ESM อย่างเดียว** โปรเจกต์ที่ใช้ต้องตั้ง `"type": "module"` หรือใช้ไฟล์ `.mts` ถ้าเป็น CommonJS ต้องโหลดผ่าน `await import('@sing3demons/kp')`
+
+---
+
+## สร้างโปรเจกต์ใหม่ด้วย CLI
+
+แพ็กเกจนี้มี CLI ชื่อ `kp` ไว้สร้างโปรเจกต์ใหม่ที่มีโครงสร้างแบบเดียวกับ [`examples/`](examples/) (middleware, error handler, module `users` พร้อม test) ต้องตั้ง `GITHUB_TOKEN` และ `.npmrc` ตาม[ขั้นตอนติดตั้ง](#ติดตั้ง)ก่อน เพราะ `bunx`/`npx` ต้องโหลดแพ็กเกจจาก GitHub Packages
+
+```sh
+bunx @sing3demons/kp create my-api                    # ถามทีละข้อ (runtime, style)
+npx @sing3demons/kp create my-api -r node -y
+```
+
+| option | ค่า | default |
+| --- | --- | --- |
+| `-r, --runtime` | `bun` \| `node` | runtime ที่ใช้รัน CLI |
+| `-s, --style` | `decorator` (`@Controller`/`@Get`) \| `routes` (chain `.get()/.post()`) | `decorator` |
+| `-y, --yes` | ไม่ถาม ใช้ค่า default | |
+| `--skip-install` | ไม่รัน `bun install` / `npm install` | |
+| `--skip-git` | ไม่รัน `git init` | |
+| `-f, --force` | เขียนลง directory ที่มีไฟล์อยู่แล้ว | |
+
+โปรเจกต์ที่ได้มี `package.json` (`dev`, `start`, `test`, `typecheck`), `tsconfig.json`, `.npmrc`, `.gitignore` และ `README.md` ให้พร้อม ถ้าติดตั้งไม่ผ่านเพราะยังไม่มี token ให้ตั้ง `GITHUB_TOKEN` แล้วรัน install เองอีกรอบ
+
+Template อยู่ที่ [`templates/`](templates/) แยกเป็นชั้น `base/` + `routes/` หรือ `decorator/` + `bun/` หรือ `node/` แล้วคัดลอกซ้อนกันตามลำดับ ไฟล์ `_gitignore` / `_npmrc` จะถูกเปลี่ยนชื่อเป็น `.gitignore` / `.npmrc` ตอนสร้าง (npm ไม่ publish ไฟล์ที่ขึ้นต้นด้วยชื่อนี้) ระหว่างพัฒนาลองรัน CLI จาก source ได้ด้วย `bun run cli create /tmp/test-app`
 
 ---
 
