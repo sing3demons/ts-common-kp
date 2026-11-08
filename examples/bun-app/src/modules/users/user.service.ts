@@ -3,11 +3,7 @@ import type { UserRepository } from './user.repository.ts'
 import type { CreateUser, UpdateUser, User } from './user.schema.ts'
 
 export class UserService {
-  private readonly repo: UserRepository
-
-  constructor(repo: UserRepository) {
-    this.repo = repo
-  }
+  constructor(private readonly repo: UserRepository) {}
 
   list(limit: number): User[] {
     return this.repo.findAll(limit)

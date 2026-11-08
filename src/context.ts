@@ -1,5 +1,7 @@
 import { TypedRequest } from './request.ts'
+import type { StandardSchemaV1 } from './standard-schema.ts'
 import type { Input, NotFoundHandler } from './types.ts'
+import { parseAsync, parseSync, readAsync, readSync } from './validation.ts'
 
 type HeaderRecord = Record<string, string>
 type RedirectStatus = 300 | 301 | 302 | 303 | 304 | 307 | 308
@@ -60,6 +62,42 @@ export class Context<P extends string = any, I extends Input = {}> {
 
   redirect(location: string, status: RedirectStatus = 302): Response {
     return this.body(null, status, { location })
+  }
+
+  // -- inline validation ------------------------------------------------------
+  // Validate inside the handler and get the schema's output type back.
+  // On failure they throw `ValidationError` → 400 `{ success: false, error: issues }`.
+
+  /** `const q: UserQuery = c.safeQuery(UserQuerySchema)` */
+  safeQuery<S extends StandardSchemaV1>(schema: S): StandardSchemaV1.InferOutput<S> {
+    return parseSync(schema, readSync(this.req, 'query'), 'query')
+  }
+
+  /** `const { id } = c.safeParam(z.object({ id: z.coerce.number() }))` */
+  safeParam<S extends StandardSchemaV1>(schema: S): StandardSchemaV1.InferOutput<S> {
+    return parseSync(schema, readSync(this.req, 'param'), 'param')
+  }
+
+  /** Header names are lower-cased: `z.object({ 'x-api-key': z.string() })` */
+  safeHeader<S extends StandardSchemaV1>(schema: S): StandardSchemaV1.InferOutput<S> {
+    return parseSync(schema, readSync(this.req, 'header'), 'header')
+  }
+
+  /** `const body: CreateUser = await c.safeBody(CreateUserSchema)` (JSON body) */
+  safeBody<S extends StandardSchemaV1>(schema: S): Promise<StandardSchemaV1.InferOutput<S>> {
+    return this.#parseBody(schema, 'json')
+  }
+
+  /** multipart/form-data or urlencoded body. */
+  safeForm<S extends StandardSchemaV1>(schema: S): Promise<StandardSchemaV1.InferOutput<S>> {
+    return this.#parseBody(schema, 'form')
+  }
+
+  async #parseBody<S extends StandardSchemaV1>(
+    schema: S,
+    target: 'json' | 'form',
+  ): Promise<StandardSchemaV1.InferOutput<S>> {
+    return parseAsync(schema, await readAsync(this.req, target), target)
   }
 
   notFound(): Response | Promise<Response> {

@@ -18,15 +18,16 @@
   "files": ["dist"],
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p examples",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "example:bun": "bun examples/bun-app/src/main.ts",
-    "example:node": "node examples/node-app/src/main.ts",
-    "test:node-app": "cd examples/node-app && node --test test/*.node-test.ts"
+    "example:node": "tsx examples/node-app/src/main.ts",
+    "test:node-app": "cd examples/node-app && tsx --test test/*.node-test.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.3.0",
     "@types/node": "^24.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "zod": "^4.1.0"
   }

@@ -116,3 +116,17 @@ new App()
   .post('/x', (c) => ctrl.create(c))
   // @ts-expect-error — validator output doesn't match the method's input
   .post('/y', validator('json', createUser.partial()), (c) => ctrl.create(c))
+
+// -- c.safeXXX(schema) ---------------------------------------------------------
+new App().get('/s/:id', async (c) => {
+  const q = c.safeQuery(listQuery)
+  type _q = Expect<Equal<typeof q, { page: number }>>
+  const { id } = c.safeParam(idParam)
+  type _id = Expect<Equal<typeof id, number>>
+  const body = await c.safeBody(createUser)
+  type _b = Expect<Equal<typeof body, { name: string; age: number }>>
+  // @ts-expect-error — safeBody is async, must be awaited
+  const notAwaited: { name: string } = c.safeBody(createUser)
+  void notAwaited
+  return c.json({ q, id, body })
+})

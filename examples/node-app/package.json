@@ -3,8 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/main.ts",
-    "start": "node src/main.ts",
-    "test": "node --test test/*.node-test.ts"
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "test": "tsx --test test/*.node-test.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }

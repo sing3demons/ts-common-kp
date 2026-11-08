@@ -1,17 +1,21 @@
 import type { Ctx } from '../../lib/kp.ts'
-import type { CreateUser, UpdateUser, UserId } from './user.schema.ts'
+import { UserQuerySchema, type CreateUser, type IUserQuery, type UpdateUser, type UserId } from './user.schema.ts'
 import type { UserService } from './user.service.ts'
 
 export class UserController {
-  private readonly service: UserService
-
-  constructor(service: UserService) {
-    this.service = service
-  }
+  constructor(private readonly service: UserService) { }
+  
+  // listAndSearch(c: Ctx) {
+  //   const query: IUserQuery = c.safeQuery(UserQuerySchema)
+  //   const limit = Number(c.req.query('limit') ?? 10)
+  //   const search = c.req.query('search') ?? ''
+  //   const result = this.service.listAndSearch(limit, search)
+  //   return c.json(result)
+  // }
 
   list(c: Ctx) {
-    const limit = Number(c.req.query('limit') ?? 10)
-    const result = this.service.list(limit)
+    const query: IUserQuery = c.safeQuery(UserQuerySchema)
+    const result = this.service.list(query.limit)
     return c.json(result)
   }
 

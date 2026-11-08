@@ -1,0 +1,10 @@
+{
+  // Example apps are run by Bun / tsx (full TS transpilers), so any TS syntax
+  // is allowed here — e.g. constructor parameter properties, enums.
+  // The framework itself (src/) stays erasable so plain `node` can run it.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "erasableSyntaxOnly": false
+  },
+  "include": ["."]
+}
