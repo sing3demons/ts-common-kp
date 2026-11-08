@@ -43,19 +43,64 @@ Web framework ขนาดเล็กสไตล์ [Hono](https://hono.dev) �
 
 ## ติดตั้ง
 
-> lib นี้ยังไม่ได้ publish ขึ้น npm ถ้าจะใช้ตอนนี้ให้ build แล้วติดตั้งจาก path ในเครื่อง
+lib นี้ publish ไว้บน **GitHub Packages** ไม่ได้อยู่บน npmjs.com ก่อนติดตั้งต้องบอก npm/bun ว่า scope `@sing3demons` อยู่ที่ registry ไหน และต้องมี token สำหรับอ่านแพ็กเกจ
+
+### 1. สร้าง GitHub token
+
+GitHub Packages บังคับให้ใช้ token ทุกครั้ง แม้แพ็กเกจจะเป็น public ก็ตาม
+
+1. ไปที่ GitHub → **Settings → Developer settings → Personal access tokens → Tokens (classic)**
+2. กด **Generate new token (classic)** แล้วเลือก scope **`read:packages`**
+3. เก็บ token ไว้ใน environment variable
 
 ```sh
-# ใน repo นี้
-bun install
-bun run build            # ได้ไฟล์ dist/
-
-# ในโปรเจกต์ที่จะใช้
-bun add /path/to/bun_common-kp    # หรือ npm install /path/to/bun_common-kp
-bun add zod                       # หรือ validation lib ที่รองรับ Standard Schema
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx   # ใส่ใน ~/.zshrc หรือ ~/.bashrc
 ```
 
-ต้องใช้ **Bun ≥ 1.1** หรือ **Node ≥ 20** และ **TypeScript ≥ 5.4** ควรเปิด `"strict": true` ด้วย
+> GitHub Packages ยังไม่รองรับ fine-grained token สำหรับ npm registry ต้องใช้ token แบบ classic
+
+### 2. ตั้งค่า `.npmrc`
+
+สร้างไฟล์ `.npmrc` ที่ root ของโปรเจกต์ที่จะใช้ (ข้างๆ `package.json`)
+
+```ini
+@sing3demons:registry=https://npm.pkg.github.com/
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+- บรรทัดแรก: ให้แพ็กเกจที่ขึ้นต้นด้วย `@sing3demons/` ไปโหลดจาก GitHub ส่วนแพ็กเกจอื่น (เช่น `zod`) ยังโหลดจาก npmjs ตามปกติ
+- บรรทัดที่สอง: อ่าน token จาก env ไม่ได้เขียน token ลงไฟล์ตรงๆ จึง commit ไฟล์นี้ได้
+- Bun ≥ 1.1.18 อ่าน `.npmrc` ได้เหมือน npm จึงใช้ไฟล์เดียวกันได้
+
+### 3. ติดตั้ง
+
+```sh
+npm install @sing3demons/kp@1.0.0     # หรือ bun add @sing3demons/kp@1.0.0
+npm install zod                       # หรือ validation lib อื่นที่รองรับ Standard Schema
+```
+
+ถ้าขึ้น error `401 Unauthorized` แปลว่าไม่มี token หรือ token ไม่มี scope `read:packages` ถ้าขึ้น `404 Not Found` ให้ตรวจบรรทัด `@sing3demons:registry=` ใน `.npmrc` และตรวจว่าบัญชีของ token มีสิทธิ์เห็นแพ็กเกจนี้ (กรณีแพ็กเกจเป็น private)
+
+### ใช้ใน CI (GitHub Actions)
+
+```yaml
+- uses: actions/setup-node@v4
+  with:
+    node-version: 20
+    registry-url: https://npm.pkg.github.com/
+    scope: '@sing3demons'
+- run: npm ci
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+ถ้า workflow อยู่คนละ repo กับแพ็กเกจ ต้องเพิ่ม repo นั้นใน **หน้าแพ็กเกจ → Package settings → Manage Actions access** ก่อน ไม่งั้น `GITHUB_TOKEN` จะอ่านแพ็กเกจไม่ได้ อีกทางคือเก็บ classic token (`read:packages`) ไว้ใน secret แล้วใช้แทน
+
+### ข้อกำหนด
+
+- **Bun ≥ 1.1** หรือ **Node ≥ 20**
+- **TypeScript ≥ 5.4** ควรเปิด `"strict": true` ด้วย ใช้ได้ทั้ง `"moduleResolution": "nodenext"` และ `"bundler"`
+- เป็น **ESM อย่างเดียว** โปรเจกต์ที่ใช้ต้องตั้ง `"type": "module"` หรือใช้ไฟล์ `.mts` ถ้าเป็น CommonJS ต้องโหลดผ่าน `await import('@sing3demons/kp')`
 
 ---
 
@@ -788,3 +833,24 @@ src/
 ├── types.ts            # Params/ParamKeys/Ctx/Handler/... types
 └── adapter/node.ts     # serve() / getRequestListener() สำหรับ node:http
 ```
+
+### Publish เวอร์ชันใหม่ขึ้น GitHub Packages
+
+ต้องมี classic token ที่มี scope **`write:packages`** (และ `repo` ถ้า repo เป็น private) ตั้งไว้ใน `~/.npmrc`:
+
+```ini
+@sing3demons:registry=https://npm.pkg.github.com/
+//npm.pkg.github.com/:_authToken=ghp_xxxxxxxxxxxxxxxxxxxx
+```
+
+จากนั้น:
+
+```sh
+npm version patch        # หรือ minor / major: แก้ version ใน package.json และสร้าง git tag
+npm publish              # prepublishOnly จะรัน test + typecheck + build ก่อน
+git push --follow-tags
+```
+
+`publishConfig.registry` ใน `package.json` ชี้ไป `https://npm.pkg.github.com/` อยู่แล้ว จึงไม่มีทางหลุดไป publish บน npmjs.com และ `repository` จะผูกแพ็กเกจเข้ากับ repo `sing3demons/bun_common-kp` บน GitHub ระดับการมองเห็น (public/private) ของแพ็กเกจจะตาม repo
+
+ถ้าจะลองแพ็กเกจก่อน publish ให้ใช้ `npm pack` แล้วติดตั้งไฟล์ `.tgz` ที่ได้ในโปรเจกต์ทดสอบ
