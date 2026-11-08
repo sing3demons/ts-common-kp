@@ -1,0 +1,10 @@
+{
+  "name": "kp-node-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/main.ts",
+    "start": "node src/main.ts",
+    "test": "node --test test/*.node-test.ts"
+  }
+}

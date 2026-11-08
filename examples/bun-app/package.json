@@ -1,0 +1,10 @@
+{
+  "name": "kp-bun-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/main.ts",
+    "start": "bun src/main.ts",
+    "test": "bun test"
+  }
+}
