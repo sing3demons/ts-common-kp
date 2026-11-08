@@ -851,6 +851,6 @@ npm publish              # prepublishOnly จะรัน test + typecheck + bui
 git push --follow-tags
 ```
 
-`publishConfig.registry` ใน `package.json` ชี้ไป `https://npm.pkg.github.com/` อยู่แล้ว จึงไม่มีทางหลุดไป publish บน npmjs.com และ `repository` จะผูกแพ็กเกจเข้ากับ repo `sing3demons/bun_common-kp` บน GitHub ระดับการมองเห็น (public/private) ของแพ็กเกจจะตาม repo
+`publishConfig.registry` ใน `package.json` ชี้ไป `https://npm.pkg.github.com/` อยู่แล้ว จึงไม่มีทางหลุดไป publish บน npmjs.com และ `repository` จะผูกแพ็กเกจเข้ากับ repo `sing3demons/ts-common-kp` บน GitHub ระดับการมองเห็น (public/private) ของแพ็กเกจจะตาม repo
 
 ถ้าจะลองแพ็กเกจก่อน publish ให้ใช้ `npm pack` แล้วติดตั้งไฟล์ `.tgz` ที่ได้ในโปรเจกต์ทดสอบ
