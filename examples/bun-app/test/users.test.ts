@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { Server } from '../src/app.ts'
+import { App } from '../src/lib/kp.ts'
+import { errorHandler, notFoundHandler } from '../src/middleware/error.ts'
+import { createUserRoutes } from '../src/modules/users/index.ts'
 
 const json = (method: string, body: unknown) => ({
   method,
@@ -8,9 +10,9 @@ const json = (method: string, body: unknown) => ({
 })
 
 describe('bun-app /api/users', () => {
-  let app: Server['app']
+  let app: App
   beforeEach(() => {
-    app = new Server({ logger: false }).app
+    app = new App().onError(errorHandler).notFound(notFoundHandler).register(createUserRoutes())
   })
 
   test('CRUD flow', async () => {
@@ -40,8 +42,7 @@ describe('bun-app /api/users', () => {
     expect(dup.status).toBe(409)
   })
 
-  test('health and not found', async () => {
-    expect(await (await app.request('/health')).json()).toEqual({ status: 'ok' })
+  test('not found', async () => {
     expect((await app.request('/nope')).status).toBe(404)
   })
 })

@@ -1,10 +1,16 @@
-import { Server } from './app.ts'
 import { config } from './config.ts'
-import { serve } from './lib/kp-node.ts'
+import { App } from './lib/kp.ts'
+import { errorHandler, notFoundHandler } from './middleware/error.ts'
+import { logger } from './middleware/logger.ts'
+import { userRoutes } from './modules/users/index.ts'
 
-const { app } = new Server()
-const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
-  console.log(`[node-app] listening on http://localhost:${info.port}`)
+const app = new App()
+app.use(logger())
+app.onError(errorHandler)
+app.notFound(notFoundHandler)
+app.get('/health', (c) => c.json({ status: 'ok' }))
+app.register(userRoutes)
+
+app.start({ port: config.port }, (info) => {
+  console.log(`[${info.runtime}] listening on ${info.url}`)
 })
-
-process.on('SIGINT', () => server.close(() => process.exit(0)))

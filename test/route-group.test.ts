@@ -67,4 +67,43 @@ describe('route groups', () => {
     expect(res.status).toBe(503)
     expect(await res.text()).toBe('sub handled: sub')
   })
+
+  test('register() an App, with and without prefix', async () => {
+    const users = new App().basePath('/users').get('/:id', (c) => c.text(c.req.param('id')))
+    const posts = new App().get('/', (c) => c.text('posts'))
+    const app = new App().register(users).register(posts, { prefix: '/posts' })
+
+    expect(await (await app.request('/users/7')).text()).toBe('7')
+    expect(await (await app.request('/posts')).text()).toBe('posts')
+  })
+
+  test('register() a plugin function', async () => {
+    const plugin = (app: App) => {
+      app.use(async (c, next) => {
+        await next()
+        c.header('x-plugin', '1')
+      })
+      app.get('/ping', (c) => c.text('pong'))
+    }
+    const app = new App().get('/', (c) => c.text('root')).register(plugin, { prefix: '/p' })
+
+    const res = await app.request('/p/ping')
+    expect(await res.text()).toBe('pong')
+    expect(res.headers.get('x-plugin')).toBe('1')
+    expect((await app.request('/')).headers.get('x-plugin')).toBeNull()
+  })
+})
+
+describe('start()', () => {
+  test('serves on the current runtime and stops', async () => {
+    const app = new App().get('/', (c) => c.text('live'))
+    let called = false
+    const server = await app.start({ port: 0 }, () => {
+      called = true
+    })
+    expect(called).toBe(true)
+    expect(server.runtime).toBe('bun')
+    expect(await (await fetch(server.url)).text()).toBe('live')
+    await server.stop()
+  })
 })

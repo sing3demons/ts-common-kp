@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { beforeEach, describe, test } from 'node:test'
-import { Server } from '../src/app.ts'
+import { App } from '../src/lib/kp.ts'
+import { errorHandler, notFoundHandler } from '../src/middleware/error.ts'
+import { createUserRoutes } from '../src/modules/users/index.ts'
 
 const json = (method: string, body: unknown) => ({
   method,
@@ -9,9 +11,9 @@ const json = (method: string, body: unknown) => ({
 })
 
 describe('node-app /api/users', () => {
-  let app: Server['app']
+  let app: App
   beforeEach(() => {
-    app = new Server({ logger: false }).app
+    app = new App().onError(errorHandler).notFound(notFoundHandler).register(createUserRoutes())
   })
 
   test('CRUD flow', async () => {
@@ -41,8 +43,7 @@ describe('node-app /api/users', () => {
     assert.equal(dup.status, 409)
   })
 
-  test('health and not found', async () => {
-    assert.deepEqual(await (await app.request('/health')).json(), { status: 'ok' })
+  test('not found', async () => {
     assert.equal((await app.request('/nope')).status, 404)
   })
 })

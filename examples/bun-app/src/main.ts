@@ -1,11 +1,16 @@
-import { Server } from './app.ts'
 import { config } from './config.ts'
+import { App } from './lib/kp.ts'
+import { errorHandler, notFoundHandler } from './middleware/error.ts'
+import { logger } from './middleware/logger.ts'
+import { userRoutes } from './modules/users/index.ts'
 
-const { app } = new Server()
-const server = Bun.serve({ port: config.port, fetch: app.fetch })
-console.log(`[bun-app] listening on ${server.url}`)
+const app = new App()
+app.use(logger())
+app.onError(errorHandler)
+app.notFound(notFoundHandler)
+app.get('/health', (c) => c.json({ status: 'ok' }))
+app.register(userRoutes)
 
-process.on('SIGINT', () => {
-  server.stop()
-  process.exit(0)
+app.start({ port: config.port }, (info) => {
+  console.log(`[${info.runtime}] listening on ${info.url}`)
 })

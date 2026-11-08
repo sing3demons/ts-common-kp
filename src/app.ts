@@ -13,6 +13,34 @@ import type {
 
 type AnyHandler = MiddlewareHandler<any, any>
 
+/** A function that adds routes / middleware to an app. */
+export type Plugin = (app: App) => void
+
+export interface StartOptions {
+  port?: number
+  hostname?: string
+}
+
+export interface ServerInfo {
+  runtime: 'bun' | 'node'
+  port: number
+  hostname: string
+  url: string
+}
+
+export interface RunningServer extends ServerInfo {
+  stop(): Promise<void>
+}
+
+/** Minimal shape of the `Bun` global we rely on (avoids a hard dependency on bun types). */
+interface BunLike {
+  serve(options: {
+    port?: number
+    hostname?: string | undefined
+    fetch: (req: Request) => Response | Promise<Response>
+  }): { port: number; hostname: string; url: URL; stop(): void }
+}
+
 interface RouteDef {
   method: string
   path: string
@@ -125,6 +153,60 @@ export class App {
       this.#addRoute(r.method, joinPaths(base, r.path), handlers)
     }
     return this
+  }
+
+  /**
+   * Register a group of routes:
+   * - an `App` (e.g. `new App().basePath('/users').get(...)`) is mounted as-is, or under `prefix`;
+   * - a plugin function receives this app (scoped to `prefix`) and adds routes/middleware itself.
+   */
+  register(plugin: App | Plugin, options: { prefix?: string } = {}): this {
+    const prefix = options.prefix ?? '/'
+    if (plugin instanceof App) return this.route(prefix, plugin)
+    plugin(prefix === '/' ? this : this.basePath(prefix))
+    return this
+  }
+
+  /**
+   * Start an HTTP server on the current runtime: `Bun.serve` on Bun, `node:http` on Node.
+   * Resolves once the server is listening.
+   */
+  async start(options: StartOptions = {}, onListen?: (info: ServerInfo) => void): Promise<RunningServer> {
+    const port = options.port ?? 3000
+    const hostname = options.hostname
+    const bun = (globalThis as { Bun?: BunLike }).Bun
+
+    let running: RunningServer
+    if (bun) {
+      const server = bun.serve({ port, hostname, fetch: this.fetch })
+      running = {
+        runtime: 'bun',
+        port: server.port,
+        hostname: server.hostname,
+        url: server.url.href,
+        stop: async () => server.stop(),
+      }
+    } else {
+      const { serve } = await import('./adapter/node.ts')
+      const { server, info } = await new Promise<{
+        server: ReturnType<typeof serve>
+        info: { port: number; address: string }
+      }>((resolve, reject) => {
+        const server = serve({ fetch: this.fetch, port, hostname }, (info) => resolve({ server, info }))
+        server.once('error', reject)
+      })
+      const host = hostname ?? 'localhost'
+      running = {
+        runtime: 'node',
+        port: info.port,
+        hostname: host,
+        url: `http://${host}:${info.port}/`,
+        stop: () => new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve()))),
+      }
+    }
+
+    onListen?.(running)
+    return running
   }
 
   /** A view of this app whose routes are registered under `path`. Shares routes, middleware and handlers. */
