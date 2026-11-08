@@ -955,7 +955,45 @@ git push --follow-tags   # push commit และ tag ของเวอร์ช
 - `--//npm.pkg.github.com/:_authToken=...` ส่ง token ของ `sing3demons` ไปเฉพาะคำสั่งนี้ ไม่ต้องแก้ `~/.npmrc` และไม่ทับ token ของบัญชีอื่นที่ใช้กับ host เดียวกัน
 - ไม่ต้องเขียน token ลงไฟล์ `.npmrc` ในโปรเจกต์ ถ้าจำเป็นต้องเขียนจริงๆ ให้ใส่ `.npmrc` ใน `.gitignore` ก่อน
 - publish เวอร์ชันเดิมซ้ำไม่ได้ ถ้าจะแก้ต้องขึ้นเวอร์ชันใหม่
-- เลือกเวอร์ชันตาม semver: `patch` สำหรับแก้บั๊ก, `minor` สำหรับฟีเจอร์ใหม่ที่ไม่ทำให้ของเดิมพัง, `major` สำหรับการเปลี่ยนที่ทำให้โค้ดเดิมต้องแก้
+- `npm version` ต้องให้ working tree clean ก่อน (ไม่อย่างนั้นจะขึ้น `Git working directory not clean`) ให้ commit งานให้เสร็จก่อนขึ้นเวอร์ชัน
+
+#### เลือกเวอร์ชันด้วย `npm version`
+
+ใช้ [semver](https://semver.org) ตัวอย่างข้างล่างคิดจากเวอร์ชันปัจจุบัน `1.0.1`
+
+| คำสั่ง | ผลลัพธ์ | ใช้ตอนไหน |
+|---|---|---|
+| `npm version patch` | `1.0.1` → `1.0.2` | แก้บั๊ก ไม่เพิ่มหรือเปลี่ยน API |
+| `npm version minor` | `1.0.1` → `1.1.0` | เพิ่มฟีเจอร์ใหม่ โค้ดเดิมของคนใช้ยังทำงานได้ |
+| `npm version major` | `1.0.1` → `2.0.0` | breaking change: ลบ, เปลี่ยนชื่อ หรือเปลี่ยนพฤติกรรมของ API จนคนใช้ต้องแก้โค้ด |
+| `npm version 1.5.0` | `1.0.1` → `1.5.0` | ระบุเลขเอง |
+
+**เวอร์ชันทดลอง (pre-release)** สำหรับให้คนลองใช้ก่อนออกจริง
+
+| คำสั่ง | ผลลัพธ์ |
+|---|---|
+| `npm version prepatch` | `1.0.1` → `1.0.2-0` |
+| `npm version preminor` | `1.0.1` → `1.1.0-0` |
+| `npm version premajor` | `1.0.1` → `2.0.0-0` |
+| `npm version prerelease` | `1.1.0-0` → `1.1.0-1` (ขยับเลขท้าย) |
+| `npm version preminor --preid beta` | `1.0.1` → `1.1.0-beta.0` |
+
+เวอร์ชันทดลองต้อง publish พร้อม `--tag` ไม่อย่างนั้นจะกลายเป็น `latest` และคนที่รัน `npm i @sing3demons/kp` ปกติจะได้เวอร์ชันทดลองไป
+
+```sh
+npm publish --tag beta "--//npm.pkg.github.com/:_authToken=$(gh auth token -u sing3demons)"
+npm i @sing3demons/kp@beta        # ฝั่งคนใช้: ขอเวอร์ชัน beta เอง
+```
+
+**Option ที่ใช้บ่อย**
+
+| Option | ผล |
+|---|---|
+| `-m "release %s"` | ตั้งข้อความ commit เอง (`%s` จะถูกแทนด้วยเลขเวอร์ชัน) |
+| `--no-git-tag-version` | แก้ `package.json` อย่างเดียว ไม่สร้าง commit และ tag |
+| `--allow-same-version` | ยอมให้ตั้งเลขเดิมซ้ำ |
+
+`npm version` ทำ 3 อย่างในคำสั่งเดียว: แก้ `version` ใน `package.json`, สร้าง commit และสร้าง tag `vX.Y.Z` แบบ annotated ซึ่ง `git push --follow-tags` จะส่ง tag นี้ขึ้นไปด้วย ถ้าสร้าง tag เองด้วย `git tag v1.2.3` (แบบ lightweight) `--follow-tags` จะไม่ส่งให้ ต้องใช้ `git tag -a` หรือรัน `git push origin v1.2.3` แยกอีกครั้ง
 
 `publishConfig.registry` ใน `package.json` ชี้ไป `https://npm.pkg.github.com/` อยู่แล้ว จึงไม่มีทางหลุดไป publish บน npmjs.com และ `repository` จะผูกแพ็กเกจเข้ากับ repo `sing3demons/ts-common-kp` บน GitHub ระดับการมองเห็น (public/private) ของแพ็กเกจจะตาม repo
 
