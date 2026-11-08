@@ -3,7 +3,13 @@ export { Context } from './context.ts'
 export { TypedRequest } from './request.ts'
 export { HTTPException, type HTTPExceptionOptions } from './http-exception.ts'
 export { validator, type ValidationHook } from './validator.ts'
-export { ValidationError } from './validation.ts'
+export {
+  validate,
+  validateAsync,
+  ValidationError,
+  type Result,
+  type ValidationIssues,
+} from './validation.ts'
 export type { StandardSchemaV1 } from './standard-schema.ts'
 export type {
   Ctx,

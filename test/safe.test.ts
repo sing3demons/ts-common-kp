@@ -72,3 +72,33 @@ describe('c.safeXXX(schema)', () => {
     expect(await (await a.request('/')).text()).toContain('is async')
   })
 })
+
+describe('c.validate(schema, data) → Result', () => {
+  const Body = z.object({ name: z.string().min(1) })
+  const app = new App().post('/', async (c) => {
+    const result = c.validate(Body, await c.req.json())
+    if (!result.ok) return c.json({ ok: false, n: result.error.length }, 422)
+    return c.json({ ok: true, name: result.value.name })
+  })
+
+  test('ok', async () => {
+    const res = await app.request('/', { method: 'POST', body: '{"name":"a"}' })
+    expect(await res.json()).toEqual({ ok: true, name: 'a' })
+  })
+
+  test('error does not throw', async () => {
+    const res = await app.request('/', { method: 'POST', body: '{"name":""}' })
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ ok: false, n: 1 })
+  })
+
+  test('standalone validate / validateAsync', async () => {
+    const { validate, validateAsync } = await import('../src/index.ts')
+    expect(validate(Body, { name: 'x' })).toEqual({ ok: true, value: { name: 'x' } })
+    expect(validate(Body, {}).ok).toBe(false)
+    const asyncSchema = Body.refine(async (v) => v.name !== 'taken')
+    expect(() => validate(asyncSchema, { name: 'x' })).toThrow()
+    expect((await validateAsync(asyncSchema, { name: 'taken' })).ok).toBe(false)
+    expect(await validateAsync(asyncSchema, { name: 'free' })).toEqual({ ok: true, value: { name: 'free' } })
+  })
+})

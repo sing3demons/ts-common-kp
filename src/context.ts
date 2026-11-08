@@ -1,7 +1,16 @@
 import { TypedRequest } from './request.ts'
 import type { StandardSchemaV1 } from './standard-schema.ts'
 import type { Input, NotFoundHandler } from './types.ts'
-import { parseAsync, parseSync, readAsync, readSync } from './validation.ts'
+import {
+  parseAsync,
+  parseSync,
+  readAsync,
+  readSync,
+  validate,
+  validateAsync,
+  type Result,
+  type ValidationIssues,
+} from './validation.ts'
 
 type HeaderRecord = Record<string, string>
 type RedirectStatus = 300 | 301 | 302 | 303 | 304 | 307 | 308
@@ -91,6 +100,30 @@ export class Context<P extends string = any, I extends Input = {}> {
   /** multipart/form-data or urlencoded body. */
   safeForm<S extends StandardSchemaV1>(schema: S): Promise<StandardSchemaV1.InferOutput<S>> {
     return this.#parseBody(schema, 'form')
+  }
+
+  /**
+   * Validate any data without throwing: `{ ok: true, value } | { ok: false, error: issues }`.
+   *
+   * ```ts
+   * const result = c.validate(CreateUserSchema, await c.req.json())
+   * if (!result.ok) return c.json({ issues: result.error }, 422)
+   * result.value // CreateUser
+   * ```
+   */
+  validate<S extends StandardSchemaV1>(
+    schema: S,
+    data: unknown,
+  ): Result<StandardSchemaV1.InferOutput<S>, ValidationIssues> {
+    return validate(schema, data)
+  }
+
+  /** Like `c.validate`, but supports async schemas. */
+  validateAsync<S extends StandardSchemaV1>(
+    schema: S,
+    data: unknown,
+  ): Promise<Result<StandardSchemaV1.InferOutput<S>, ValidationIssues>> {
+    return validateAsync(schema, data)
   }
 
   async #parseBody<S extends StandardSchemaV1>(

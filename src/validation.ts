@@ -65,6 +65,43 @@ export const readAsync = async (req: TypedRequest, target: ValidationTarget): Pr
   return readSync(req, target)
 }
 
+// ---------------------------------------------------------------------------
+// Non-throwing validation → Result
+// ---------------------------------------------------------------------------
+
+export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E }
+
+export type ValidationIssues = ReadonlyArray<StandardSchemaV1.Issue>
+
+const toResult = <T>(r: StandardSchemaV1.Result<T>): Result<T, ValidationIssues> =>
+  r.issues ? { ok: false, error: r.issues } : { ok: true, value: r.value }
+
+/**
+ * Validate any value without throwing.
+ *
+ * ```ts
+ * const result = validate(CreateUserSchema, body)
+ * if (!result.ok) return c.json({ issues: result.error }, 400)
+ * result.value // CreateUser
+ * ```
+ * Sync only. For async schemas use `validateAsync`.
+ */
+export const validate = <S extends StandardSchemaV1>(
+  schema: S,
+  data: unknown,
+): Result<StandardSchemaV1.InferOutput<S>, ValidationIssues> => {
+  const r = schema['~standard'].validate(data)
+  if (r instanceof Promise) throw new TypeError('Schema is async. Use validateAsync(schema, data) instead.')
+  return toResult(r)
+}
+
+/** Like `validate`, but supports async schemas. */
+export const validateAsync = async <S extends StandardSchemaV1>(
+  schema: S,
+  data: unknown,
+): Promise<Result<StandardSchemaV1.InferOutput<S>, ValidationIssues>> =>
+  toResult(await schema['~standard'].validate(data))
+
 /** Validate synchronously, throwing `ValidationError` on failure. */
 export const parseSync = <S extends StandardSchemaV1>(
   schema: S,

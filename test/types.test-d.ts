@@ -130,3 +130,16 @@ new App().get('/s/:id', async (c) => {
   void notAwaited
   return c.json({ q, id, body })
 })
+
+// -- c.validate(schema, data) → Result ------------------------------------------
+new App().post('/v', async (c) => {
+  const result = c.validate(createUser, await c.req.json())
+  if (!result.ok) {
+    type _e = Expect<Equal<typeof result.error, ReadonlyArray<import('../src/index.ts').StandardSchemaV1.Issue>>>
+    // @ts-expect-error — no value on the error branch
+    result.value
+    return c.json({ issues: result.error }, 400)
+  }
+  type _v = Expect<Equal<typeof result.value, { name: string; age: number }>>
+  return c.json(result.value)
+})
