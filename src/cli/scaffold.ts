@@ -20,8 +20,32 @@ export interface ScaffoldOptions {
 export const packageRoot = fileURLToPath(new URL('../../', import.meta.url))
 export const templatesDir = join(packageRoot, 'templates')
 
-export const readOwnVersion = (): string =>
-  (JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')) as { version: string }).version
+interface OwnPackage {
+  version: string
+  devDependencies?: Record<string, string>
+}
+
+const readOwnPackage = (): OwnPackage => JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'))
+
+export const readOwnVersion = (): string => readOwnPackage().version
+
+/** Fallbacks, used only if this package's own devDependencies don't list the package. */
+const FALLBACK: Record<string, string> = {
+  typescript: '^7.0.2',
+  tsx: '^4.23.15',
+  zod: '^4.1.0',
+  '@types/node': '^24.0.0',
+  '@types/bun': '^1.3.0',
+}
+
+/**
+ * Picks version ranges from this package's devDependencies, so a new project always
+ * gets the same typescript / zod / tsx / @types the lib itself is built and tested with.
+ */
+const versions = (names: string[]): Record<string, string> => {
+  const own = readOwnPackage().devDependencies ?? {}
+  return Object.fromEntries(names.map((n) => [n, own[n] ?? FALLBACK[n] ?? 'latest']))
+}
 
 /** npm package names: lowercase, no spaces, url-safe. */
 export const toPackageName = (dir: string): string =>
@@ -49,10 +73,8 @@ const packageJson = (name: string, o: ScaffoldOptions) => {
           test: 'tsx --test test/*.test.ts',
           typecheck: 'tsc --noEmit',
         },
-    dependencies: { '@sing3demons/kp': o.kpVersion, zod: '^4.1.0' },
-    devDependencies: bun
-      ? { '@types/bun': '^1.3.0', typescript: '^5.9.3' }
-      : { '@types/node': '^24.0.0', tsx: '^4.23.15', typescript: '^5.9.3' },
+    dependencies: { '@sing3demons/kp': o.kpVersion, ...versions(['zod']) },
+    devDependencies: versions(bun ? ['@types/bun', 'typescript'] : ['@types/node', 'tsx', 'typescript']),
   }
 }
 
