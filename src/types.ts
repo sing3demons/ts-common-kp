@@ -126,3 +126,15 @@ export interface HandlerInterface<Self> {
     handler: Handler<P, I1 & I2 & I3 & I4 & I5>,
   ): Self
 }
+
+/**
+ * Handy context type for handlers written as standalone functions / class methods.
+ *
+ * - `Ctx`                                  → any route, nothing validated
+ * - `Ctx<'/:id'>`                          → typed `c.req.param('id')`
+ * - `Ctx<{ json: CreateUser }>`            → typed `c.req.valid('json')`
+ * - `Ctx<'/:id', { param: { id: number } }>` → both
+ */
+export type Ctx<A extends string | Input = {}, B extends Input = {}> = A extends string
+  ? Context<A, B>
+  : Context<any, A & Input>

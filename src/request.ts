@@ -12,6 +12,12 @@ export class TypedRequest<P extends string = any, I extends Input = {}> {
   #url: URL
   #params: Record<string, string>
   #validated: Partial<Record<string, unknown>> = {}
+  /**
+   * Type-only marker (no runtime value). Makes `TypedRequest<P, {}>` NOT assignable to
+   * `TypedRequest<P, { json: X }>`, so passing a context that lacks a validator to a
+   * handler typed `Ctx<{ json: X }>` is a compile error.
+   */
+  declare readonly '~input'?: I
   #body: Promise<ArrayBuffer> | undefined
   /** Captured eagerly: Bun drops a lazily-generated multipart content-type once the body is consumed. */
   #contentType: string | null

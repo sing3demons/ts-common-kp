@@ -5,6 +5,7 @@ export { HTTPException, type HTTPExceptionOptions } from './http-exception.ts'
 export { validator, type ValidationHook } from './validator.ts'
 export type { StandardSchemaV1 } from './standard-schema.ts'
 export type {
+  Ctx,
   ErrorHandler,
   Handler,
   HandlerInterface,

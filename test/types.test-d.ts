@@ -2,7 +2,7 @@
  * Compile-time tests. Checked by `tsc --noEmit` (never executed).
  */
 import { z } from 'zod'
-import { App, validator, type ParamKeys, type Params } from '../src/index.ts'
+import { App, validator, type Ctx, type ParamKeys, type Params } from '../src/index.ts'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 type Expect<T extends true> = T
@@ -88,3 +88,31 @@ app.get('/plain', (c) => {
 const users = new App().get('/:id', (c) => c.json({ id: c.req.param('id') }))
 const api: App = new App().basePath('/api').route('/users', users)
 void api
+
+// -- Ctx for class-method / standalone handlers -------------------------------
+class Ctrl {
+  any(c: Ctx) {
+    return c.text(c.req.query('q') ?? '')
+  }
+  byId(c: Ctx<'/:id'>) {
+    return c.text(c.req.param('id'))
+  }
+  create(c: Ctx<{ json: { name: string; age: number } }>) {
+    return c.json(c.req.valid('json').name)
+  }
+  both(c: Ctx<'/:id', { param: { id: number } }>) {
+    const n: number = c.req.valid('param').id
+    const s: string = c.req.param('id')
+    return c.json({ n, s })
+  }
+}
+const ctrl = new Ctrl()
+new App()
+  .get('/', (c) => ctrl.any(c))
+  .get('/:id', (c) => ctrl.byId(c))
+  .post('/', validator('json', createUser), (c) => ctrl.create(c))
+  .get('/:id', validator('param', idParam), (c) => ctrl.both(c))
+  // @ts-expect-error — route lacks the json validator the method requires
+  .post('/x', (c) => ctrl.create(c))
+  // @ts-expect-error — validator output doesn't match the method's input
+  .post('/y', validator('json', createUser.partial()), (c) => ctrl.create(c))
