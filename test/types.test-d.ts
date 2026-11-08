@@ -2,7 +2,7 @@
  * Compile-time tests. Checked by `tsc --noEmit` (never executed).
  */
 import { z } from 'zod'
-import { App, validator, type Ctx, type ParamKeys, type Params } from '../src/index.ts'
+import { App, Controller, Get, Post, validator, type Ctx, type ParamKeys, type Params } from '../src/index.ts'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 type Expect<T extends true> = T
@@ -143,3 +143,50 @@ new App().post('/v', async (c) => {
   type _v = Expect<Equal<typeof result.value, { name: string; age: number }>>
   return c.json(result.value)
 })
+
+// -- controller decorators -----------------------------------------------------
+@Controller('/d')
+class DecoratedCtrl {
+  // ok: nothing required
+  @Get('/')
+  list(c: Ctx) {
+    return c.json([])
+  }
+
+  // ok: path param inferred from the decorator path
+  @Get('/:id')
+  byId(c: Ctx<'/:id'>) {
+    return c.text(c.req.param('id'))
+  }
+
+  // ok: validator provides exactly what the method needs (sync or async)
+  @Post('/', validator('json', createUser))
+  async create(c: Ctx<{ json: { name: string; age: number } }>) {
+    return c.json(c.req.valid('json'))
+  }
+
+  // ok: several validators are intersected
+  @Post('/:id', validator('param', idParam), validator('json', createUser))
+  both(c: Ctx<{ param: { id: number }; json: { name: string; age: number } }>) {
+    return c.json({ ...c.req.valid('param'), ...c.req.valid('json') })
+  }
+
+  // @ts-expect-error — route lacks the json validator the method requires
+  @Post('/x')
+  missing(c: Ctx<{ json: { name: string; age: number } }>) {
+    return c.json(c.req.valid('json'))
+  }
+
+  // @ts-expect-error — validator output doesn't match the method's input
+  @Post('/y', validator('json', createUser.partial()))
+  wrong(c: Ctx<{ json: { name: string; age: number } }>) {
+    return c.json(c.req.valid('json'))
+  }
+
+  // @ts-expect-error — method must return a Response
+  @Get('/z')
+  notResponse(_c: Ctx) {
+    return 'nope'
+  }
+}
+new App().register(new DecoratedCtrl(), { prefix: '/api' })

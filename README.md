@@ -32,6 +32,7 @@ Web framework ขนาดเล็กสไตล์ [Hono](https://hono.dev) �
   - [แบบที่ 3: `c.validate(schema, data)` → `Result`](#แบบที่-3-cvalidateschema-data--result)
   - [ควรใช้แบบไหน](#ควรใช้แบบไหน)
 - [Handler ในรูปแบบ class: `Ctx`](#handler-ในรูปแบบ-class-ctx)
+- [Controller แบบ decorator: `@Controller` / `@Get` / ...](#controller-แบบ-decorator-controller--get--)
 - [Error: `HTTPException` / `ValidationError`](#error)
 - [Node adapter](#node-adapter)
 - [Types ที่ export](#types-ที่-export)
@@ -235,7 +236,7 @@ app.use(async (c, next) => {
 
 #### `register(plugin, { prefix? })`
 
-ใช้รวม route จากไฟล์หรือ module อื่นเข้ามาใน app รับได้ 2 แบบ:
+ใช้รวม route จากไฟล์หรือ module อื่นเข้ามาใน app รับได้ 3 แบบ:
 
 **แบบ App:** สร้าง route ไว้ใน `App` แยก แล้ว register เข้ามา
 
@@ -261,6 +262,12 @@ const healthPlugin = (app: App) => {
 }
 
 app.register(healthPlugin, { prefix: '/internal' })  // ได้ /internal/health
+```
+
+**แบบ controller:** instance ของ class ที่ใช้ `@Controller` / `@Get` / ... ดูรายละเอียดที่ [Controller แบบ decorator](#controller-แบบ-decorator-controller--get--)
+
+```ts
+app.register(new UserController(service), { prefix: '/api' })
 ```
 
 middleware ที่ plugin หรือ sub-app ประกาศไว้จะมีผล**เฉพาะ path ใต้ prefix นั้น**
@@ -656,6 +663,84 @@ export const userRoutes = new App()
 
 ---
 
+## Controller แบบ decorator: `@Controller` / `@Get` / ...
+
+ถ้าอยากประกาศ route ไว้บน method ของ controller ตรงๆ (คล้าย NestJS) ใช้ decorator แล้วส่ง instance ให้ `register()`:
+
+```ts
+// user.controller.ts
+import { Controller, Delete, Get, Patch, Post, validator, type Ctx } from '@sing3demons/kp'
+
+const param = validator('param', UserIdSchema)
+
+@Controller('/users')
+export class UserController {
+  constructor(private readonly service: UserService) {}
+
+  @Get('/')
+  list(c: Ctx) {
+    const query = c.safeQuery(UserQuerySchema)
+    return c.json(this.service.list(query.limit))
+  }
+
+  @Get('/:id', param)
+  getById(c: Ctx<{ param: UserId }>) {
+    return c.json(this.service.get(c.req.valid('param').id))
+  }
+
+  @Post('/', validator('json', CreateUserSchema))
+  create(c: Ctx<{ json: CreateUser }>) {
+    return c.json(this.service.create(c.req.valid('json')), 201)
+  }
+
+  @Patch('/:id', param, validator('json', UpdateUserSchema))
+  update(c: Ctx<{ param: UserId; json: UpdateUser }>) { ... }
+
+  @Delete('/:id', param)
+  remove(c: Ctx<{ param: UserId }>) { ... }
+}
+
+// user.routes.ts
+const user = new UserController(new UserService(new UserRepository()))
+export const userRoutes = new App().register(user, { prefix: '/api' })   // → /api/users, /api/users/:id
+```
+
+| Decorator | ใช้ทำอะไร |
+|---|---|
+| `@Controller(prefix?)` | ใส่ที่ class กำหนด prefix ของทุก route ใน controller (ไม่ใส่ก็ได้ จะใช้ `/`) |
+| `@Get(path, ...middlewares)` | ประกาศ route บน method เหมือน `app.get(path, ...middlewares, handler)` |
+| `@Post` `@Put` `@Patch` `@Delete` `@Options` | method อื่น ใช้แบบเดียวกัน |
+| `@All(path, ...middlewares)` | รับทุก method |
+
+- path สุดท้าย = prefix ของ `register()` + prefix ของ `@Controller` + path ของ route
+- `this` ใน method คือ instance ที่ส่งให้ `register()` ไม่ต้องเขียน `(c) => user.list(c)` เอง
+- middleware ที่ `use()` ไว้ใน app และ `onError()` ยังทำงานกับ route ของ controller ตามปกติ
+- subclass ได้ route ของ class แม่ด้วย และใช้ prefix ของ `@Controller` ตัวเอง
+- ถ้าส่ง object ที่ไม่มี route decorator เลยให้ `register()` จะ throw `TypeError`
+
+**TypeScript ยังเช็กให้ว่า decorator ใส่ validator ครบตามที่ method ต้องการ:**
+
+```ts
+@Post('/')                                          // ❌ ลืมใส่ validator('json', ...)
+create(c: Ctx<{ json: CreateUser }>) { ... }
+
+@Post('/', validator('json', UpdateUserSchema))     // ❌ ใส่ schema ผิดตัว
+create(c: Ctx<{ json: CreateUser }>) { ... }
+
+@Get('/')                                           // ❌ method ต้อง return Response
+list(c: Ctx) { return 'hello' }
+```
+
+**ข้อกำหนด**
+
+- ใช้ decorator มาตรฐาน (TC39) ต้องใช้ **TypeScript ≥ 5.0** และ **ต้องไม่เปิด `"experimentalDecorators"`** ใน tsconfig (ถ้าเปิดไว้จะ throw ตอนโหลด class) ไม่ต้องติดตั้ง `reflect-metadata`
+- รันได้บน **Bun**, **tsx / esbuild** และโค้ดที่ compile ด้วย **tsc** แล้วรันด้วย `node`
+- **รันไฟล์ `.ts` ด้วย `node` ตรงๆ (type stripping) ไม่ได้** เพราะ Node ยังไม่รองรับ syntax decorator ถ้าต้องการรันแบบนั้นให้ใช้ controller แบบ [`Ctx`](#handler-ในรูปแบบ-class-ctx) แทน
+- ใส่ได้เฉพาะ instance method ใส่บน static method จะ throw
+- param ที่อยู่ใน prefix ของ `@Controller('/orgs/:orgId')` ไม่ได้ถูกใส่ใน type ให้เอง ถ้าจะใช้ต้องเขียน `Ctx<'/orgs/:orgId/...'>` เอง
+
+---
+
 ## Error
 
 ### `HTTPException`
@@ -739,6 +824,7 @@ adapter แปลง `IncomingMessage` เป็น `Request` และ `Respons
 | `Next` | `() => Promise<void>` |
 | `ErrorHandler` / `NotFoundHandler` | type ของ handler ใน `onError` / `notFound` |
 | `Plugin` | `(app: App) => void` สำหรับ `register()` |
+| `RouteDecorator<P, I>`, `RouteDecoratorFactory` | type ของ `@Get` / `@Post` / ... (ดู [Controller แบบ decorator](#controller-แบบ-decorator-controller--get--)) |
 | `StartOptions`, `ServerInfo`, `RunningServer` | type ของ `start()` |
 | `ParamKeys<'/a/:x/:y'>` | `'x' \| 'y'` |
 | `Params<'/a/:x/:y?'>` | `{ x: string; y?: string }` |
@@ -827,6 +913,7 @@ src/
 ├── router.ts           # trie router (static > param > wildcard, backtracking)
 ├── compose.ts          # middleware chain (Koa-style)
 ├── validator.ts        # validator() middleware
+├── decorators.ts       # @Controller / @Get / ... สำหรับ controller แบบ decorator
 ├── validation.ts       # อ่าน target, ValidationError, validate/validateAsync, Result
 ├── http-exception.ts   # HTTPException
 ├── standard-schema.ts  # Standard Schema V1 interface (vendored)
@@ -836,20 +923,39 @@ src/
 
 ### Publish เวอร์ชันใหม่ขึ้น GitHub Packages
 
-ต้องมี classic token ที่มี scope **`write:packages`** (และ `repo` ถ้า repo เป็น private) ตั้งไว้ใน `~/.npmrc`:
+แพ็กเกจ scope `@sing3demons` publish ได้เฉพาะบัญชี GitHub **`sing3demons`** และ token ต้องมี scope **`write:packages`** ถ้าใช้ token ของบัญชีอื่น หรือ token ที่มีแค่ `read:packages` จะได้ error นี้:
 
-```ini
-@sing3demons:registry=https://npm.pkg.github.com/
-//npm.pkg.github.com/:_authToken=ghp_xxxxxxxxxxxxxxxxxxxx
+```
+403 Forbidden - PUT https://npm.pkg.github.com/@sing3demons%2fkp - The token provided does not match expected scopes.
 ```
 
-จากนั้น:
+#### ตั้งค่าครั้งแรก (ทำครั้งเดียว)
+
+ใช้ token ของ `gh` CLI จะได้ไม่ต้องสร้าง Personal Access Token เอง
 
 ```sh
-npm version patch        # หรือ minor / major: แก้ version ใน package.json และสร้าง git tag
-npm publish              # prepublishOnly จะรัน test + typecheck + build ก่อน
-git push --follow-tags
+gh auth login                                   # ถ้ายังไม่เคย login บัญชี sing3demons ใน gh
+gh auth switch -u sing3demons
+gh auth refresh -h github.com -s write:packages # เปิด browser ให้กดยืนยัน
+gh auth status                                  # บรรทัดของ sing3demons ต้องมี 'write:packages'
 ```
+
+- ตอนกดยืนยันใน browser **ต้อง login เป็น `sing3demons`** ถ้า browser login บัญชีอื่นค้างไว้ ให้ logout หรือเปิดหน้าต่าง incognito ก่อน ไม่อย่างนั้นสิทธิ์จะไปเพิ่มให้บัญชีผิด
+- ถ้าเครื่องนี้ใช้บัญชีอื่นทำงานเป็นหลัก (เช่น ใช้อ่านแพ็กเกจของ org อื่นผ่าน `~/.npmrc`) ให้สลับกลับด้วย `gh auth switch -u <บัญชีเดิม>` การ publish ข้างล่างไม่ต้องให้ `sing3demons` เป็นบัญชีที่ active
+
+#### Publish
+
+```sh
+npm version patch        # หรือ minor / major: แก้ version ใน package.json แล้วสร้าง commit + git tag
+npm publish "--//npm.pkg.github.com/:_authToken=$(gh auth token -u sing3demons)"
+git push --follow-tags   # push commit และ tag ของเวอร์ชันนั้นขึ้น GitHub
+```
+
+- `npm publish` จะรัน `prepublishOnly` (test, typecheck, build) ก่อน ถ้าขั้นไหนพังจะหยุดและไม่อัปโหลด
+- `--//npm.pkg.github.com/:_authToken=...` ส่ง token ของ `sing3demons` ไปเฉพาะคำสั่งนี้ ไม่ต้องแก้ `~/.npmrc` และไม่ทับ token ของบัญชีอื่นที่ใช้กับ host เดียวกัน
+- ไม่ต้องเขียน token ลงไฟล์ `.npmrc` ในโปรเจกต์ ถ้าจำเป็นต้องเขียนจริงๆ ให้ใส่ `.npmrc` ใน `.gitignore` ก่อน
+- publish เวอร์ชันเดิมซ้ำไม่ได้ ถ้าจะแก้ต้องขึ้นเวอร์ชันใหม่
+- เลือกเวอร์ชันตาม semver: `patch` สำหรับแก้บั๊ก, `minor` สำหรับฟีเจอร์ใหม่ที่ไม่ทำให้ของเดิมพัง, `major` สำหรับการเปลี่ยนที่ทำให้โค้ดเดิมต้องแก้
 
 `publishConfig.registry` ใน `package.json` ชี้ไป `https://npm.pkg.github.com/` อยู่แล้ว จึงไม่มีทางหลุดไป publish บน npmjs.com และ `repository` จะผูกแพ็กเกจเข้ากับ repo `sing3demons/ts-common-kp` บน GitHub ระดับการมองเห็น (public/private) ของแพ็กเกจจะตาม repo
 

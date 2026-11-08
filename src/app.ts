@@ -1,5 +1,6 @@
 import { compose } from './compose.ts'
 import { Context } from './context.ts'
+import { getControllerRoutes } from './decorators.ts'
 import { HTTPException } from './http-exception.ts'
 import { TypedRequest } from './request.ts'
 import { compileMatcher, METHOD_ALL, TrieRouter } from './router.ts'
@@ -158,12 +159,22 @@ export class App {
   /**
    * Register a group of routes:
    * - an `App` (e.g. `new App().basePath('/users').get(...)`) is mounted as-is, or under `prefix`;
-   * - a plugin function receives this app (scoped to `prefix`) and adds routes/middleware itself.
+   * - a plugin function receives this app (scoped to `prefix`) and adds routes/middleware itself;
+   * - a controller instance (class using `@Controller` / `@Get` / ...) has its routes mounted under `prefix`.
    */
-  register(plugin: App | Plugin, options: { prefix?: string } = {}): this {
+  register(plugin: App | Plugin | object, options: { prefix?: string } = {}): this {
     const prefix = options.prefix ?? '/'
     if (plugin instanceof App) return this.route(prefix, plugin)
-    plugin(prefix === '/' ? this : this.basePath(prefix))
+    if (typeof plugin === 'function') {
+      ;(plugin as Plugin)(prefix === '/' ? this : this.basePath(prefix))
+      return this
+    }
+    const controller = getControllerRoutes(plugin)
+    if (!controller) {
+      throw new TypeError('register() expects an App, a plugin function, or a controller with @Get/@Post/... routes')
+    }
+    const view = this.basePath(prefix).basePath(controller.prefix)
+    for (const r of controller.routes) view.on(r.method, r.path, ...(r.handlers as AnyHandler[]))
     return this
   }
 

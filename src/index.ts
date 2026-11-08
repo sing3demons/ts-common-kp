@@ -4,6 +4,18 @@ export { TypedRequest } from './request.ts'
 export { HTTPException, type HTTPExceptionOptions } from './http-exception.ts'
 export { validator, type ValidationHook } from './validator.ts'
 export {
+  All,
+  Controller,
+  Delete,
+  Get,
+  Options,
+  Patch,
+  Post,
+  Put,
+  type RouteDecorator,
+  type RouteDecoratorFactory,
+} from './decorators.ts'
+export {
   validate,
   validateAsync,
   ValidationError,
