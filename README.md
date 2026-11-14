@@ -986,7 +986,7 @@ log.info('job started').addSummary('items', 10).flush()
 
 ## Node adapter
 
-ปกติใช้ `app.start()` ก็พอ แต่ถ้าต้องการควบคุม server ของ Node เอง ใช้ `@sing3demons/kp/node` ได้:
+ปกติใช้ `app.start()` ก็พอ แต่ถ้าต้องการควบคุม server ของ Node เอง ใช้ `@sing3demons/kp/node` ได้ (subpath อื่นที่มี: `@sing3demons/kp/logger` ดู [Logger](#logger)):
 
 ```ts
 import { serve, getRequestListener } from '@sing3demons/kp/node'
@@ -1100,7 +1100,7 @@ bun run example:node     # examples/node-app (tsx)
 ```sh
 bun install
 bun test               # runtime tests (router, app, validator, route groups, safe/validate, start)
-bun run typecheck      # tsc: src + test (รวม type tests ใน test/types.test-d.ts) + examples
+bun run typecheck      # tsc: src + test (รวม type tests ใน test/*.test-d.ts) + examples + test/no-logger (ไม่ติดตั้ง logger)
 bun run build          # สร้าง dist/ (.js + .d.ts)
 bun run test:node-app  # test ของ node-app ด้วย node:test
 ```
@@ -1119,7 +1119,17 @@ src/
 ├── http-exception.ts   # HTTPException
 ├── standard-schema.ts  # Standard Schema V1 interface (vendored)
 ├── types.ts            # Params/ParamKeys/Ctx/Handler/... types
-└── adapter/node.ts     # serve() / getRequestListener() สำหรับ node:http
+├── adapter/node.ts     # serve() / getRequestListener() สำหรับ node:http
+└── logger/             # @sing3demons/kp/logger (core ไม่ import โฟลเดอร์นี้)
+    ├── index.ts        # entry ของ subpath: import ./install.ts + export API
+    ├── install.ts      # เพิ่ม app.logger() / c.info() ... (type ผ่าน module augmentation + runtime)
+    ├── logger.ts       # class Logger: detail / summary / dependency / ids
+    ├── config.ts       # อ่าน logger.yaml, env, package.json
+    ├── options.ts      # validate / merge options
+    ├── format.ts       # json / logfmt / text
+    ├── mask.ts         # mask rule + maskData()
+    ├── ids.ts          # uuidv7, traceparent, sanitize id
+    └── types.ts        # LoggerOptions, MaskRule, LogRecord, ...
 ```
 
 ### Publish เวอร์ชันใหม่ขึ้น GitHub Packages
