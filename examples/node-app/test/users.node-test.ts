@@ -3,6 +3,7 @@ import { beforeEach, describe, test } from 'node:test'
 import { App } from '../src/lib/kp.ts'
 import { errorHandler, notFoundHandler } from '../src/middleware/error.ts'
 import { createUserRoutes } from '../src/modules/users/index.ts'
+import '../src/lib/kp-logger.ts'
 
 const json = (method: string, body: unknown) => ({
   method,

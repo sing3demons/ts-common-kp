@@ -1,4 +1,4 @@
-import type { Ctx } from '../../app.ts'
+import type { Ctx } from '@sing3demons/kp'
 import { UserQuerySchema, type CreateUser, type IUserQuery, type UpdateUser, type UserId } from './user.schema.ts'
 import type { UserService } from './user.service.ts'
 

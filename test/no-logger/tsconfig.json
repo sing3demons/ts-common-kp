@@ -1,0 +1,7 @@
+{
+  // A separate program that never imports `src/logger`: the log API must not exist here.
+  // (Root `tsc` sees the logger installed because test/logger.test.ts imports it.)
+  "extends": "../../tsconfig.json",
+  "include": ["."],
+  "exclude": []
+}

@@ -2,16 +2,8 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import {
-  App,
-  createLogger,
-  HTTPException,
-  loadLoggerConfig,
-  maskData,
-  ValidationError,
-  type AppLoggerOptions,
-  type LogRecord,
-} from '../src/index.ts'
+import { App, HTTPException, ValidationError } from '../src/index.ts'
+import { createLogger, loadLoggerConfig, maskData, type AppLoggerOptions, type LogRecord } from '../src/logger/index.ts'
 import { formatLogfmt, formatText } from '../src/logger/format.ts'
 import { parseTraceparent, sanitizeId, uuidv7 } from '../src/logger/ids.ts'
 import { readAppInfo, resolveLoggerOptions } from '../src/logger/config.ts'
@@ -622,10 +614,9 @@ describe('without app.logger()', () => {
     expect(records[1]).toMatchObject({ k: 1, app_result: 'success' })
   })
 
-  test('log methods throw at runtime (and are type errors, see types.test-d.ts)', async () => {
+  test('installed but app.logger() not called: log methods throw (type errors when not installed, see test/no-logger)', async () => {
     const app = new App().onError((err, c) => c.text(err.message, 500))
     app.get('/', (c) => {
-      // @ts-expect-error — no logger on this app
       c.info('x')
       return c.text('ok')
     })

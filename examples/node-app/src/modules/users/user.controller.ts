@@ -1,5 +1,4 @@
-import { Controller, Delete, Get, Patch, Post, validator } from '../../lib/kp.ts'
-import type { Ctx } from '../../app.ts'
+import { Controller, Delete, Get, Patch, Post, validator, type Ctx } from '../../lib/kp.ts'
 import {
   CreateUserSchema,
   UpdateUserSchema,

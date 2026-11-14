@@ -11,12 +11,6 @@ import {
   type Ctx,
   type ParamKeys,
   type Params,
-  type CtxOf,
-  type EnvOf,
-  type ErrorHandler,
-  type Input,
-  type MiddlewareHandler,
-  type WithLogger,
 } from '../src/index.ts'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
@@ -205,86 +199,3 @@ class DecoratedCtrl {
   }
 }
 new App().register(new DecoratedCtrl(), { prefix: '/api' })
-
-// -- logger gating ---------------------------------------------------------------
-// Inline handlers of `new App()` (no logger) can't call log methods; `new App().logger(...)` can.
-// Types written elsewhere (`Ctx`, `ErrorHandler`, `App` annotations) assume a logger.
-{
-  const plain = new App()
-  plain.get('/', (c) => {
-    // @ts-expect-error — no logger on this app
-    c.info('x')
-    // @ts-expect-error — no logger on this app
-    c.log()
-    // @ts-expect-error — no logger on this app
-    c.addSummary('k', 1)
-    // @ts-expect-error — no logger on this app
-    c.setDependency({ dependency: 'db' })
-    c.requestId // getters stay available (undefined without a logger)
-    return c.text('ok')
-  })
-  plain.onError((err, c) => {
-    // @ts-expect-error — no logger on this app
-    c.error('boom', err)
-    return c.text('x', 500)
-  })
-  plain.use(async (c, next) => {
-    // @ts-expect-error — no logger on this app
-    c.warn('mw')
-    await next()
-  })
-
-  // framework types have no logger by default
-  const plainCtx = (c: Ctx) => {
-    // @ts-expect-error — Ctx from the framework has no logger
-    c.log()
-    return c.text('ok')
-  }
-  plain.get('/pc', (c) => plainCtx(c))
-  const logged = new App().logger({ level: 'silent' })
-  type _l = Expect<Equal<typeof logged, App<WithLogger>>>
-  logged.use(async (c, next) => {
-    c.info('mw')
-    await next()
-  })
-  logged.post('/users', validator('json', createUser), (c) => {
-    const body = c.req.valid('json')
-    const r = c.info('validated', body).addSummary('name', body.name)
-    type _r = Expect<Equal<typeof r, typeof c>>
-    c.log().info('a').warn('b')
-    c.setDependency({ dependency: 'db', dependencyId: c.genId() }).info('db_request')
-    return c.flush({ appResultCode: '20000' }).json(body, 201)
-  })
-  logged.onError((err, c) => c.error('unhandled', err).text('x', 500))
-  logged.notFound((c) => c.warn('not found').text('404', 404))
-  logged.basePath('/v1').get('/', (c) => c.info('nested').text('ok'))
-  logged.route('/plain', plain)
-
-  // types derived from the app: log methods follow the app's `.logger(...)`
-  type LCtx<A extends string | Input = {}, B extends Input = {}> = CtxOf<typeof logged, A, B>
-  type PCtx<A extends string | Input = {}, B extends Input = {}> = CtxOf<typeof plain, A, B>
-  type _e1 = Expect<Equal<EnvOf<typeof logged>, WithLogger>>
-  type _e2 = Expect<Equal<EnvOf<typeof plain>, {}>>
-  class UserCtrl {
-    create(c: LCtx<{ json: { name: string; age: number } }>) {
-      return c.addSummary('name', c.req.valid('json').name).info('created').json({}, 201)
-    }
-    list(c: PCtx) {
-      // @ts-expect-error — the plain app has no logger, so its Ctx has no log()
-      c.log()
-      return c.json([])
-    }
-  }
-  const uc = new UserCtrl()
-  logged.post('/c', validator('json', createUser), (c) => uc.create(c))
-  plain.get('/l', (c) => uc.list(c))
-  // sub-app built with `new App()` in another file can hand its context to the app's Ctx
-  new App().basePath('/users').post('/', validator('json', createUser), (c) => uc.create(c))
-  const onErr: ErrorHandler<EnvOf<typeof logged>> = (err, c) => c.error('unhandled', err).text('x', 500)
-  logged.onError(onErr)
-  const mw: MiddlewareHandler<any, {}, EnvOf<typeof logged>> = async (c, next) => {
-    c.info('mw')
-    await next()
-  }
-  logged.use(mw)
-}

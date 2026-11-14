@@ -1,5 +1,4 @@
-import { Controller, Delete, Get, Patch, Post, validator } from '@sing3demons/kp'
-import type { Ctx } from '../../app.ts'
+import { Controller, Delete, Get, Patch, Post, validator, type Ctx } from '@sing3demons/kp'
 import {
   CreateUserSchema,
   UpdateUserSchema,

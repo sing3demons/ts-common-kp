@@ -1,9 +1,3 @@
-/** Env of an app / context that has a logger (`new App().logger(...)`). */
-export type WithLogger = { logger: true }
-
-/** Type-level features of an app / context. */
-export type Env = { logger?: true }
-
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 export type LogLevelOption = LogLevel | 'silent'
 export type LogFormat = 'json' | 'logfmt' | 'text'

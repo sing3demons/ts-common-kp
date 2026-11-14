@@ -24,6 +24,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./logger": {
+      "types": "./dist/logger/index.d.ts",
+      "import": "./dist/logger/index.js"
+    },
     "./node": {
       "types": "./dist/adapter/node.d.ts",
       "import": "./dist/adapter/node.js"
@@ -35,7 +39,7 @@
   ],
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p examples",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p examples && tsc --noEmit -p test/no-logger",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "example:bun": "bun examples/bun-app/src/main.ts",
     "example:node": "tsx examples/node-app/src/main.ts",

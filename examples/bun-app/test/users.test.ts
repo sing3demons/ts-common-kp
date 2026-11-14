@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { App } from '../src/lib/kp.ts'
 import { errorHandler, notFoundHandler } from '../src/middleware/error.ts'
 import { createUserRoutes } from '../src/modules/users/index.ts'
+import '../src/lib/kp-logger.ts'
 
 const json = (method: string, body: unknown) => ({
   method,

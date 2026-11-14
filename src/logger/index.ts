@@ -1,9 +1,11 @@
+// Importing this module installs `app.logger(...)` and the log methods on `c`.
+import './install.ts'
+
 export { createLogger, Logger } from './logger.ts'
 export { loadLoggerConfig } from './config.ts'
 export { maskData } from './mask.ts'
 export type {
   AppLoggerOptions,
-  Env,
   DependencyInfo,
   FlushErrorOptions,
   FlushOptions,
@@ -18,5 +20,4 @@ export type {
   MaskPreset,
   MaskRule,
   Sink,
-  WithLogger,
 } from './types.ts'

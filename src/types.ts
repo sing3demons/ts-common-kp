@@ -1,5 +1,4 @@
 import type { Context } from './context.ts'
-import type { Env } from './logger/types.ts'
 
 /** Flattens intersections so hover types stay readable. */
 export type Simplify<T> = { [K in keyof T]: T[K] } & {}
@@ -53,24 +52,17 @@ export type Input = { [K in ValidationTarget]?: unknown }
 
 export type Next = () => Promise<void>
 
-// Handler types are declared through a method (`{ fn(...): R }['fn']`) so their parameter is
-// checked bivariantly: e.g. `validator()` (typed without a logger) plugs into an app with one.
+export type Handler<P extends string = any, I extends Input = {}> = (
+  c: Context<P, I>,
+) => Response | Promise<Response>
 
-export type Handler<P extends string = any, I extends Input = {}, E extends Env = {}> = {
-  fn(c: Context<P, I, E>): Response | Promise<Response>
-}['fn']
+export type MiddlewareHandler<P extends string = any, I extends Input = {}> = (
+  c: Context<P, I>,
+  next: Next,
+) => Response | void | Promise<Response | void>
 
-export type MiddlewareHandler<P extends string = any, I extends Input = {}, E extends Env = {}> = {
-  fn(c: Context<P, I, E>, next: Next): Response | void | Promise<Response | void>
-}['fn']
-
-export type ErrorHandler<E extends Env = {}> = {
-  fn(err: Error, c: Context<any, {}, E>): Response | Promise<Response>
-}['fn']
-
-export type NotFoundHandler<E extends Env = {}> = {
-  fn(c: Context<any, {}, E>): Response | Promise<Response>
-}['fn']
+export type ErrorHandler = (err: Error, c: Context) => Response | Promise<Response>
+export type NotFoundHandler = (c: Context) => Response | Promise<Response>
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD'
 
@@ -78,28 +70,28 @@ export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | '
  * Overloaded route registration signature. Each middleware / validator may
  * contribute an `Input`; they are intersected and handed to the final handler.
  */
-export interface HandlerInterface<Self, E extends Env = {}> {
-  <P extends string>(path: P, handler: Handler<P, {}, E>): Self
+export interface HandlerInterface<Self> {
+  <P extends string>(path: P, handler: Handler<P, {}>): Self
 
   <P extends string, I1 extends Input = {}>(
     path: P,
-    m1: MiddlewareHandler<P, I1, E>,
-    handler: Handler<P, I1, E>,
+    m1: MiddlewareHandler<P, I1>,
+    handler: Handler<P, I1>,
   ): Self
 
   <P extends string, I1 extends Input = {}, I2 extends Input = {}>(
     path: P,
-    m1: MiddlewareHandler<P, I1, E>,
-    m2: MiddlewareHandler<P, I2, E>,
-    handler: Handler<P, I1 & I2, E>,
+    m1: MiddlewareHandler<P, I1>,
+    m2: MiddlewareHandler<P, I2>,
+    handler: Handler<P, I1 & I2>,
   ): Self
 
   <P extends string, I1 extends Input = {}, I2 extends Input = {}, I3 extends Input = {}>(
     path: P,
-    m1: MiddlewareHandler<P, I1, E>,
-    m2: MiddlewareHandler<P, I2, E>,
-    m3: MiddlewareHandler<P, I3, E>,
-    handler: Handler<P, I1 & I2 & I3, E>,
+    m1: MiddlewareHandler<P, I1>,
+    m2: MiddlewareHandler<P, I2>,
+    m3: MiddlewareHandler<P, I3>,
+    handler: Handler<P, I1 & I2 & I3>,
   ): Self
 
   <
@@ -110,11 +102,11 @@ export interface HandlerInterface<Self, E extends Env = {}> {
     I4 extends Input = {},
   >(
     path: P,
-    m1: MiddlewareHandler<P, I1, E>,
-    m2: MiddlewareHandler<P, I2, E>,
-    m3: MiddlewareHandler<P, I3, E>,
-    m4: MiddlewareHandler<P, I4, E>,
-    handler: Handler<P, I1 & I2 & I3 & I4, E>,
+    m1: MiddlewareHandler<P, I1>,
+    m2: MiddlewareHandler<P, I2>,
+    m3: MiddlewareHandler<P, I3>,
+    m4: MiddlewareHandler<P, I4>,
+    handler: Handler<P, I1 & I2 & I3 & I4>,
   ): Self
 
   <
@@ -126,12 +118,12 @@ export interface HandlerInterface<Self, E extends Env = {}> {
     I5 extends Input = {},
   >(
     path: P,
-    m1: MiddlewareHandler<P, I1, E>,
-    m2: MiddlewareHandler<P, I2, E>,
-    m3: MiddlewareHandler<P, I3, E>,
-    m4: MiddlewareHandler<P, I4, E>,
-    m5: MiddlewareHandler<P, I5, E>,
-    handler: Handler<P, I1 & I2 & I3 & I4 & I5, E>,
+    m1: MiddlewareHandler<P, I1>,
+    m2: MiddlewareHandler<P, I2>,
+    m3: MiddlewareHandler<P, I3>,
+    m4: MiddlewareHandler<P, I4>,
+    m5: MiddlewareHandler<P, I5>,
+    handler: Handler<P, I1 & I2 & I3 & I4 & I5>,
   ): Self
 }
 
@@ -143,6 +135,6 @@ export interface HandlerInterface<Self, E extends Env = {}> {
  * - `Ctx<{ json: CreateUser }>`            → typed `c.req.valid('json')`
  * - `Ctx<'/:id', { param: { id: number } }>` → both
  */
-export type Ctx<A extends string | Input = {}, B extends Input = {}, E extends Env = {}> = A extends string
-  ? Context<A, B, E>
-  : Context<any, A & Input, E>
+export type Ctx<A extends string | Input = {}, B extends Input = {}> = A extends string
+  ? Context<A, B>
+  : Context<any, A & Input>

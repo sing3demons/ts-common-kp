@@ -36,7 +36,7 @@ Web framework ขนาดเล็กสไตล์ [Hono](https://hono.dev) �
 - [Controller แบบ decorator: `@Controller` / `@Get` / ...](#controller-แบบ-decorator-controller--get--)
 - [Error: `HTTPException` / `ValidationError`](#error)
 - [Logger](#logger)
-  - [เปิดใช้ method ของ log (type)](#เปิดใช้-method-ของ-log-type)
+  - [ติดตั้ง logger (type)](#ติดตั้ง-logger-type)
   - [config](#config)
   - [detail log](#detail-log) / [summary log](#summary-log) / [dependency](#dependency)
   - [mask ข้อมูล](#mask-ข้อมูล)
@@ -820,54 +820,43 @@ app.onError((err, c) => {
 
 ## Logger
 
-เปิดด้วย `app.logger(...)` แล้วทุก request จะได้
+logger เป็นส่วนเสริม ต้องติดตั้งก่อนใช้ด้วยการ import ครั้งเดียวที่ไหนก็ได้ในโปรเจกต์ (เช่นบรรทัดแรกของ `src/main.ts`):
+
+```ts
+import '@sing3demons/kp/logger'
+import { App } from '@sing3demons/kp'
+
+const app = new App()
+app.logger({ path: 'logger.yaml' })                  // อ่าน config จากไฟล์
+app.logger({ path: 'logger.yaml', format: 'text' })  // ค่าที่ส่งมาทับค่าในไฟล์
+app.logger({ format: 'logfmt', level: 'debug' })     // ไม่ใช้ไฟล์
+```
+
+เมื่อเปิดแล้วทุก request จะได้
 
 - **id ของ request:** `correlation_id`, `request_id` และ `trace_id`/`span_id` (ถ้ามี `traceparent`) ติดไปกับทุกบรรทัด และส่งกลับใน response header
 - **detail log:** เขียนทันทีทุกครั้งที่เรียก `c.info(...)` ฯลฯ
 - **summary log:** 1 บรรทัดต่อ request สรุป status, เวลา, ผลลัพธ์ และ dependency ที่เรียก
 
-```ts
-const app = new App().logger({ path: 'logger.yaml' })             // อ่าน config จากไฟล์
-const app = new App().logger({ path: 'logger.yaml', format: 'text' }) // ค่าที่ส่งมาทับค่าในไฟล์
-const app = new App().logger({ format: 'logfmt', level: 'debug' }) // ไม่ใช้ไฟล์
-```
+### ติดตั้ง logger (type)
 
-### เปิดใช้ method ของ log (type)
-
-method ของ log บน `c` (`c.info`, `c.log()`, `c.addSummary`, `c.setDependency`, `c.flush` ฯลฯ) มีเฉพาะเมื่อ app สร้างด้วย `.logger(...)` ถ้าไม่มีจะเป็น **type error** (`This expression is not callable`)
+| | `app.logger()`, `c.log()`, `c.info()`, `c.addSummary()` ... |
+|---|---|
+| ไม่ได้ `import '@sing3demons/kp/logger'` | ❌ type error: `Property 'info' does not exist` (ทุกไฟล์ รวมถึง controller ที่ใช้ `Ctx`) |
+| import แล้ว | ✅ ใช้ได้ทุกไฟล์ |
+| import แล้ว แต่ app ไม่ได้เรียก `app.logger(...)` | type ผ่าน แต่ throw `logger is not enabled` ตอนเรียก |
 
 ```ts
-const app = new App().logger({ path: 'logger.yaml' })   // ✅ ต้อง chain ใช้ app ที่ .logger() คืนมา
-app.get('/', (c) => c.info('hi').text('ok'))           // ✅
-
-new App().get('/', (c) => c.info('hi').text('ok'))     // ❌ type error: ไม่มี logger
-```
-
-handler ที่อยู่ในไฟล์อื่น (controller, error handler) ให้เอา type มาจาก app ของโปรเจกต์ ไม่ใช่จาก framework ตรงๆ (template จาก CLI ทำไว้ใน `src/app.ts` แล้ว):
-
-```ts
-// src/app.ts
-import { App, type CtxOf, type EnvOf, type ErrorHandler as KpErrorHandler, type Input } from '@sing3demons/kp'
-
-export const app = new App().logger({ path: 'logger.yaml' })
-export type Ctx<A extends string | Input = {}, B extends Input = {}> = CtxOf<typeof app, A, B>
-export type ErrorHandler = KpErrorHandler<EnvOf<typeof app>>
-```
-
-```ts
-// user.controller.ts
-import type { Ctx } from '../../app.ts'
+// user.controller.ts — ใช้ Ctx จาก framework ตามปกติ
+import type { Ctx } from '@sing3demons/kp'
 
 create(c: Ctx<{ json: CreateUser }>) {
-  c.addSummary('user_id', 1)   // ✅ เพราะ app มี .logger()
+  c.addSummary('user_id', 1)   // ✅ เมื่อโปรเจกต์ import '@sing3demons/kp/logger'
 }
 ```
 
-ถ้าเอา `.logger(...)` ออกจาก `src/app.ts` method ของ log จะหายไปจาก `Ctx` ทุกไฟล์และเป็น type error ทันที
-
-- `Ctx` / `ErrorHandler` / `MiddlewareHandler` ที่ import จาก `@sing3demons/kp` ตรงๆ ไม่มี log
-- test ที่สร้าง app เองให้ใช้ `new App().logger({ level: 'silent' })` เพื่อไม่ให้มี log ออกมา และ import type จาก `src/app.ts` ด้วย `import type` (ไม่สร้าง app จริงตอนรัน test)
-- `c.requestId` / `c.correlationId` ใช้ได้เสมอ (เป็น `undefined` ถ้าไม่มี logger)
+- import ครั้งเดียวมีผลทั้งโปรเจกต์ ทั้ง type (ทุกไฟล์ที่ `tsc` ตรวจ) และ runtime
+- test ที่ไม่ได้ import `src/main.ts` ต้อง `import '@sing3demons/kp/logger'` เอง และสร้าง app ด้วย `app.logger({ level: 'silent' })` เพื่อไม่ให้มี log ออกมา (template จาก CLI ทำไว้แล้ว)
 
 ### config
 
@@ -973,7 +962,7 @@ c.maskInfo([{ field: 'body.*.password', pattern: 'full' }], 'login', { body })
 | `custom` + `regex` (+ `replacement`, default `*`) | แทนทุกตัวที่ match เช่น `regex: '\d(?=\d{4})'` → `******5678` |
 | ค่าอื่น | ใช้ค่านั้นแทนตรงๆ |
 
-mask ใน config ใช้กับทุก log (data, `additional_info`, ฟิลด์ของ summary) ส่วน `maskInfo` / `maskDebug` / `maskWarn` / `maskError` ใช้เพิ่มเฉพาะบรรทัดนั้น ใช้ `maskData(data, rules)` เพื่อ mask ข้อมูลนอก logger ได้
+mask ใน config ใช้กับทุก log (data, `additional_info`, ฟิลด์ของ summary) ส่วน `maskInfo` / `maskDebug` / `maskWarn` / `maskError` ใช้เพิ่มเฉพาะบรรทัดนั้น ใช้ `maskData(data, rules)` (จาก `@sing3demons/kp/logger`) เพื่อ mask ข้อมูลนอก logger ได้
 
 ### ส่ง id ต่อไปยัง service อื่น
 
@@ -987,7 +976,7 @@ await fetch('http://order-service/orders', { headers: { ...c.log().propagationHe
 ### ใช้นอก request
 
 ```ts
-import { createLogger } from '@sing3demons/kp'
+import { createLogger } from '@sing3demons/kp/logger'
 const log = createLogger({ format: 'logfmt' })
 log.info('job started').addSummary('items', 10).flush()
 ```
@@ -1039,12 +1028,10 @@ adapter แปลง `IncomingMessage` เป็น `Request` และ `Respons
 | `ValidationTarget`, `ValidationTargets` | `'json' \| 'form' \| 'query' \| 'param' \| 'header'` และรูปแบบข้อมูลดิบของแต่ละ target |
 | `StandardSchemaV1` | interface ของ Standard Schema |
 | `Method` | `'GET' \| 'POST' \| ...` |
-| `LoggerOptions`, `AppLoggerOptions` | option ของ `createLogger()` / `app.logger()` |
+| `LoggerOptions`, `AppLoggerOptions` | option ของ `createLogger()` / `app.logger()` (type ของ logger ทั้งหมด import จาก `@sing3demons/kp/logger`) |
 | `LogRecord`, `Sink`, `LogLevel`, `LogFormat`, `LogType` | record ที่เขียนและปลายทางของ log |
 | `MaskRule`, `MaskPreset` | กฎของ mask |
 | `DependencyInfo`, `FlushOptions`, `FlushErrorOptions` | argument ของ `setDependency()` / `flush()` / `flushError()` |
-| `CtxOf<typeof app, A?, B?>`, `EnvOf<typeof app>` | type ของ context / env ตาม app จริง (ดู [Logger](#เปิดใช้-method-ของ-log-type)) |
-| `WithLogger`, `Env` | env ของ app ที่มี logger |
 
 ตัวอย่าง middleware ที่นำไปใช้ซ้ำได้:
 
@@ -1083,10 +1070,10 @@ export const requireApiKey = (key: string): MiddlewareHandler => async (c, next)
 
 ```
 src/
-├── app.ts                     # new App().logger() + type Ctx / ErrorHandler ที่ controller ใช้
-├── main.ts                    # onError / register(userRoutes) → start()
+├── main.ts                    # import logger → new App() → logger / onError / register(userRoutes) → start()
 ├── config.ts
 ├── lib/kp.ts                  # จุด import framework จุดเดียว
+├── lib/kp-logger.ts           # = import '@sing3demons/kp/logger'
 ├── middleware/
 │   └── error.ts               # errorHandler (HTTPException / ValidationError) + notFoundHandler
 └── modules/users/
