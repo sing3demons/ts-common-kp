@@ -1,6 +1,6 @@
 {
   "name": "@sing3demons/kp",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "A tiny, type-safe, Hono-like web framework for Bun and Node",
   "license": "MIT",
   "repository": {
