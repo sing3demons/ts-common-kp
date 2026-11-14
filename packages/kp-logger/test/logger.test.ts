@@ -2,11 +2,11 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { App, HTTPException, ValidationError } from '../src/index.ts'
-import { createLogger, loadLoggerConfig, maskData, type AppLoggerOptions, type LogRecord } from '../src/logger/index.ts'
-import { formatLogfmt, formatText } from '../src/logger/format.ts'
-import { parseTraceparent, sanitizeId, uuidv7 } from '../src/logger/ids.ts'
-import { readAppInfo, resolveLoggerOptions } from '../src/logger/config.ts'
+import { App, HTTPException, ValidationError } from '@sing3demons/kp'
+import { createLogger, loadLoggerConfig, maskData, type AppLoggerOptions, type LogRecord } from '../src/index.ts'
+import { formatLogfmt, formatText } from '../src/format.ts'
+import { parseTraceparent, sanitizeId, uuidv7 } from '../src/ids.ts'
+import { readAppInfo, resolveLoggerOptions } from '../src/config.ts'
 
 const fixture = new URL('./fixtures/logger.yaml', import.meta.url)
 
@@ -614,7 +614,7 @@ describe('without app.logger()', () => {
     expect(records[1]).toMatchObject({ k: 1, app_result: 'success' })
   })
 
-  test('installed but app.logger() not called: log methods throw (type errors when not installed, see test/no-logger)', async () => {
+  test('installed but app.logger() not called: log methods throw (type errors when not installed, see test/no-logger in the core package)', async () => {
     const app = new App().onError((err, c) => c.text(err.message, 500))
     app.get('/', (c) => {
       c.info('x')

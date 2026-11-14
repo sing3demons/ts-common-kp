@@ -29,6 +29,9 @@ const readOwnPackage = (): OwnPackage => JSON.parse(readFileSync(join(packageRoo
 
 export const readOwnVersion = (): string => readOwnPackage().version
 
+/** Logger add-on (separate package, see packages/kp-logger). Kept in sync by test/cli.test.ts. */
+export const KP_LOGGER_VERSION = '^1.0.0'
+
 /** Fallbacks, used only if this package's own devDependencies don't list the package. */
 const FALLBACK: Record<string, string> = {
   typescript: '^7.0.2',
@@ -73,7 +76,7 @@ const packageJson = (name: string, o: ScaffoldOptions) => {
           test: 'tsx --test test/*.test.ts',
           typecheck: 'tsc --noEmit',
         },
-    dependencies: { '@sing3demons/kp': o.kpVersion, ...versions(['zod']) },
+    dependencies: { '@sing3demons/kp': o.kpVersion, '@sing3demons/kp-logger': KP_LOGGER_VERSION, ...versions(['zod']) },
     devDependencies: versions(bun ? ['@types/bun', 'typescript'] : ['@types/node', 'tsx', 'typescript']),
   }
 }
@@ -121,7 +124,7 @@ ${run} run dev
 
 \`\`\`
 src/
-  main.ts                 จุดเริ่ม: import logger, error handler, register module
+  main.ts                 จุดเริ่ม: import '@sing3demons/kp-logger', error handler, register module
   config.ts               อ่านค่าจาก env (PORT)
   middleware/             error handler
   modules/users/          ตัวอย่าง module: schema → repository → service → controller → routes

@@ -1,16 +1,14 @@
 /**
- * Installs the logger into the framework: `import '@sing3demons/kp/logger'` once anywhere in the
+ * Installs the logger into the framework: `import '@sing3demons/kp-logger'` once anywhere in the
  * project adds `app.logger(...)` and the log methods on `c` (types and runtime). Without that
  * import they don't exist, so using them is a type error.
  */
-import { App, type RequestHook } from '../app.ts'
-import { Context } from '../context.ts'
-import type { Input } from '../types.ts'
+import { App, Context, type Input, type RequestHook } from '@sing3demons/kp'
 import { resolveLoggerOptions } from './config.ts'
 import { Logger } from './logger.ts'
 import type { AppLoggerOptions, DependencyInfo, FlushErrorOptions, FlushOptions, MaskRule } from './types.ts'
 
-declare module '../app.js' {
+declare module '@sing3demons/kp' {
   interface App {
     /**
      * Request logging: ids (correlation / request / trace), detail lines via `c.info(...)`
@@ -24,9 +22,7 @@ declare module '../app.js' {
      */
     logger(options?: AppLoggerOptions): this
   }
-}
 
-declare module '../context.js' {
   interface Context<P extends string = any, I extends Input = {}> {
     /** The request logger (ids, detail lines, summary). Throws if the app has no `app.logger(...)`. */
     log(): Logger

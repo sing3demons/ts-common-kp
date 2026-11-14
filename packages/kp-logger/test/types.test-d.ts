@@ -1,10 +1,10 @@
 /**
- * Compile-time tests with the logger installed (`import '@sing3demons/kp/logger'`).
+ * Compile-time tests with the logger installed (`import '@sing3demons/kp-logger'`).
  * Checked by `tsc --noEmit` (never executed).
  */
 import { z } from 'zod'
-import { App, validator, type Ctx, type ErrorHandler, type MiddlewareHandler } from '../src/index.ts'
-import '../src/logger/index.ts'
+import { App, validator, type Ctx, type ErrorHandler, type MiddlewareHandler } from '@sing3demons/kp'
+import '../src/index.ts'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 type Expect<T extends true> = T

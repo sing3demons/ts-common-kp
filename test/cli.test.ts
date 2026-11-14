@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { scaffold, toPackageName } from '../src/cli/scaffold.ts'
+import { KP_LOGGER_VERSION, scaffold, toPackageName } from '../src/cli/scaffold.ts'
 
 const root = mkdtempSync(join(tmpdir(), 'kp-cli-'))
 afterAll(() => rmSync(root, { recursive: true, force: true }))
@@ -27,6 +27,8 @@ describe('cli scaffold', () => {
     const own = JSON.parse(readFileSync(join(import.meta.dir, '../package.json'), 'utf8'))
     expect(pkg.devDependencies.typescript).toBe(own.devDependencies.typescript)
     expect(pkg.dependencies.zod).toBe(own.devDependencies.zod)
+    expect(pkg.dependencies['@sing3demons/kp-logger']).toBe(KP_LOGGER_VERSION)
+    expect(readFileSync(join(dir, 'src/main.ts'), 'utf8')).toContain("import '@sing3demons/kp-logger'")
     expect(readFileSync(join(dir, 'src/modules/users/user.routes.ts'), 'utf8')).toContain('.basePath(')
     expect(readFileSync(join(dir, 'test/users.test.ts'), 'utf8')).toContain('bun:test')
   })
@@ -55,4 +57,9 @@ describe('cli scaffold', () => {
     expect(toPackageName('/tmp/Hello World!')).toBe('hello-world')
     expect(toPackageName('/tmp/_x')).toBe('x')
   })
+})
+
+test('KP_LOGGER_VERSION matches packages/kp-logger', () => {
+  const logger = JSON.parse(readFileSync(join(import.meta.dir, '../packages/kp-logger/package.json'), 'utf8'))
+  expect(KP_LOGGER_VERSION).toBe(`^${logger.version}`)
 })

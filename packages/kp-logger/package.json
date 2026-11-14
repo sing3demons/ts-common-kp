@@ -1,0 +1,43 @@
+{
+  "name": "@sing3demons/kp-logger",
+  "version": "1.0.0",
+  "description": "Request logger for @sing3demons/kp: detail / summary logs, ids, masking, JSON / logfmt / text",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sing3demons/ts-common-kp.git",
+    "directory": "packages/kp-logger"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "sideEffects": [
+    "./dist/index.js",
+    "./dist/install.js"
+  ],
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm --prefix ../.. test && npm --prefix ../.. run typecheck && npm --prefix ../.. run build && npm run build"
+  },
+  "peerDependencies": {
+    "@sing3demons/kp": "^3.0.0"
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
+  }
+}

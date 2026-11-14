@@ -65,8 +65,8 @@ interface AppState {
 }
 
 /**
- * @internal Request lifecycle hook used by add-ons such as `@sing3demons/kp/logger`
- * (installed with `import '@sing3demons/kp/logger'`). Runs around every middleware.
+ * @internal Request lifecycle hook used by add-ons such as `@sing3demons/kp-logger`
+ * (installed with `import '@sing3demons/kp-logger'`). Runs around every middleware.
  */
 export interface RequestHook {
   /** Awaited by `start()` so setup errors (e.g. a bad config file) surface at startup. */

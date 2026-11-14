@@ -1,11 +1,11 @@
 /**
- * Compile-time tests without `import '@sing3demons/kp/logger'`: the logger API doesn't exist.
+ * Compile-time tests without `import '@sing3demons/kp-logger'`: the logger API doesn't exist.
  * Checked by `tsc --noEmit -p test/no-logger` (never executed).
  */
 import { App, type Ctx, type ErrorHandler } from '../../src/index.ts'
 
 const app = new App()
-// @ts-expect-error — app.logger() needs `import '@sing3demons/kp/logger'`
+// @ts-expect-error — app.logger() needs `import '@sing3demons/kp-logger'`
 app.logger({ format: 'json' })
 
 app.get('/', (c) => {

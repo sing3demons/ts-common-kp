@@ -24,10 +24,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./logger": {
-      "types": "./dist/logger/index.d.ts",
-      "import": "./dist/logger/index.js"
-    },
     "./node": {
       "types": "./dist/adapter/node.d.ts",
       "import": "./dist/adapter/node.js"
@@ -52,9 +48,7 @@
     "@types/node": "^24.0.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
+    "yaml": "^2.9.1",
     "zod": "^4.1.0"
-  },
-  "dependencies": {
-    "yaml": "^2.9.1"
   }
 }

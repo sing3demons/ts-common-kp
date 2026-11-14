@@ -1,4 +1,12 @@
-export { App, App as Kp, type Plugin, type RunningServer, type ServerInfo, type StartOptions } from './app.ts'
+export {
+  App,
+  App as Kp,
+  type Plugin,
+  type RequestHook,
+  type RunningServer,
+  type ServerInfo,
+  type StartOptions,
+} from './app.ts'
 export { Context } from './context.ts'
 export { TypedRequest } from './request.ts'
 export { HTTPException, type HTTPExceptionOptions } from './http-exception.ts'
@@ -38,3 +46,6 @@ export type {
   ValidationTarget,
   ValidationTargets,
 } from './types.ts'
+
+/** @internal For add-ons (e.g. `@sing3demons/kp-logger`): the path matcher `app.use()` uses. */
+export { compileMatcher } from './router.ts'

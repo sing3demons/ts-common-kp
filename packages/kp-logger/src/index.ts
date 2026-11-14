@@ -1,4 +1,4 @@
-// Importing this module installs `app.logger(...)` and the log methods on `c`.
+// `import '@sing3demons/kp-logger'` installs `app.logger(...)` and the log methods on `c`.
 import './install.ts'
 
 export { createLogger, Logger } from './logger.ts'

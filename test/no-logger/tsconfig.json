@@ -1,6 +1,6 @@
 {
-  // A separate program that never imports `src/logger`: the log API must not exist here.
-  // (Root `tsc` sees the logger installed because test/logger.test.ts imports it.)
+  // A separate program that never imports @sing3demons/kp-logger: the log API must not exist here.
+  // (Root `tsc` sees the logger installed because packages/kp-logger is part of it.)
   "extends": "../../tsconfig.json",
   "include": ["."],
   "exclude": []

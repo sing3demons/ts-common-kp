@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { App } from '@sing3demons/kp'
 import { errorHandler, notFoundHandler } from '../src/middleware/error.ts'
 import { createUserRoutes } from '../src/modules/users/index.ts'
-import '@sing3demons/kp/logger'
+import '@sing3demons/kp-logger'
 
 const json = (method: string, body: unknown) => ({
   method,

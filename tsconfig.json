@@ -13,8 +13,10 @@
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    // Dev resolution: add-ons in packages/ import the core from source.
+    "paths": { "@sing3demons/kp": ["./src/index.ts"] }
   },
-  "include": ["src", "test"],
+  "include": ["src", "test", "packages/*/src", "packages/*/test"],
   "exclude": ["test/no-logger"]
 }

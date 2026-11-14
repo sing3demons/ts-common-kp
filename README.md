@@ -820,10 +820,14 @@ app.onError((err, c) => {
 
 ## Logger
 
-logger เป็นส่วนเสริม ต้องติดตั้งก่อนใช้ด้วยการ import ครั้งเดียวที่ไหนก็ได้ในโปรเจกต์ (เช่นบรรทัดแรกของ `src/main.ts`):
+logger เป็น package แยก [`@sing3demons/kp-logger`](packages/kp-logger) ติดตั้งเพิ่มแล้ว import ครั้งเดียวที่ไหนก็ได้ในโปรเจกต์ (เช่นบรรทัดแรกของ `src/main.ts`) โปรเจกต์ที่สร้างจาก CLI มีให้แล้ว:
+
+```sh
+npm install @sing3demons/kp-logger     # หรือ bun add @sing3demons/kp-logger
+```
 
 ```ts
-import '@sing3demons/kp/logger'
+import '@sing3demons/kp-logger'
 import { App } from '@sing3demons/kp'
 
 const app = new App()
@@ -842,7 +846,7 @@ app.logger({ format: 'logfmt', level: 'debug' })     // ไม่ใช้ไฟ
 
 | | `app.logger()`, `c.log()`, `c.info()`, `c.addSummary()` ... |
 |---|---|
-| ไม่ได้ `import '@sing3demons/kp/logger'` | ❌ type error: `Property 'info' does not exist` (ทุกไฟล์ รวมถึง controller ที่ใช้ `Ctx`) |
+| ไม่ได้ `import '@sing3demons/kp-logger'` | ❌ type error: `Property 'info' does not exist` (ทุกไฟล์ รวมถึง controller ที่ใช้ `Ctx`) |
 | import แล้ว | ✅ ใช้ได้ทุกไฟล์ |
 | import แล้ว แต่ app ไม่ได้เรียก `app.logger(...)` | type ผ่าน แต่ throw `logger is not enabled` ตอนเรียก |
 
@@ -851,12 +855,14 @@ app.logger({ format: 'logfmt', level: 'debug' })     // ไม่ใช้ไฟ
 import type { Ctx } from '@sing3demons/kp'
 
 create(c: Ctx<{ json: CreateUser }>) {
-  c.addSummary('user_id', 1)   // ✅ เมื่อโปรเจกต์ import '@sing3demons/kp/logger'
+  c.addSummary('user_id', 1)   // ✅ เมื่อโปรเจกต์ import '@sing3demons/kp-logger'
 }
 ```
 
 - import ครั้งเดียวมีผลทั้งโปรเจกต์ ทั้ง type (ทุกไฟล์ที่ `tsc` ตรวจ) และ runtime
-- test ที่ไม่ได้ import `src/main.ts` ต้อง `import '@sing3demons/kp/logger'` เอง และสร้าง app ด้วย `app.logger({ level: 'silent' })` เพื่อไม่ให้มี log ออกมา (template จาก CLI ทำไว้แล้ว)
+- ต้องเป็น import ที่โหลด module จริง (`import '@sing3demons/kp-logger'` หรือ `import { createLogger } from ...`) ถ้าใช้แค่ `import type` type จะผ่านแต่ตอนรันจะไม่ได้ติดตั้ง
+- `@sing3demons/kp` เป็น peerDependency ของ kp-logger ทั้งสองต้องเป็นตัวเดียวกันในโปรเจกต์ (ไม่ติดตั้งซ้ำหลายเวอร์ชัน)
+- test ที่ไม่ได้ import `src/main.ts` ต้อง `import '@sing3demons/kp-logger'` เอง และสร้าง app ด้วย `app.logger({ level: 'silent' })` เพื่อไม่ให้มี log ออกมา (template จาก CLI ทำไว้แล้ว)
 
 ### config
 
@@ -962,7 +968,7 @@ c.maskInfo([{ field: 'body.*.password', pattern: 'full' }], 'login', { body })
 | `custom` + `regex` (+ `replacement`, default `*`) | แทนทุกตัวที่ match เช่น `regex: '\d(?=\d{4})'` → `******5678` |
 | ค่าอื่น | ใช้ค่านั้นแทนตรงๆ |
 
-mask ใน config ใช้กับทุก log (data, `additional_info`, ฟิลด์ของ summary) ส่วน `maskInfo` / `maskDebug` / `maskWarn` / `maskError` ใช้เพิ่มเฉพาะบรรทัดนั้น ใช้ `maskData(data, rules)` (จาก `@sing3demons/kp/logger`) เพื่อ mask ข้อมูลนอก logger ได้
+mask ใน config ใช้กับทุก log (data, `additional_info`, ฟิลด์ของ summary) ส่วน `maskInfo` / `maskDebug` / `maskWarn` / `maskError` ใช้เพิ่มเฉพาะบรรทัดนั้น ใช้ `maskData(data, rules)` (จาก `@sing3demons/kp-logger`) เพื่อ mask ข้อมูลนอก logger ได้
 
 ### ส่ง id ต่อไปยัง service อื่น
 
@@ -976,7 +982,7 @@ await fetch('http://order-service/orders', { headers: { ...c.log().propagationHe
 ### ใช้นอก request
 
 ```ts
-import { createLogger } from '@sing3demons/kp/logger'
+import { createLogger } from '@sing3demons/kp-logger'
 const log = createLogger({ format: 'logfmt' })
 log.info('job started').addSummary('items', 10).flush()
 ```
@@ -986,7 +992,7 @@ log.info('job started').addSummary('items', 10).flush()
 
 ## Node adapter
 
-ปกติใช้ `app.start()` ก็พอ แต่ถ้าต้องการควบคุม server ของ Node เอง ใช้ `@sing3demons/kp/node` ได้ (subpath อื่นที่มี: `@sing3demons/kp/logger` ดู [Logger](#logger)):
+ปกติใช้ `app.start()` ก็พอ แต่ถ้าต้องการควบคุม server ของ Node เอง ใช้ `@sing3demons/kp/node` ได้:
 
 ```ts
 import { serve, getRequestListener } from '@sing3demons/kp/node'
@@ -1028,7 +1034,7 @@ adapter แปลง `IncomingMessage` เป็น `Request` และ `Respons
 | `ValidationTarget`, `ValidationTargets` | `'json' \| 'form' \| 'query' \| 'param' \| 'header'` และรูปแบบข้อมูลดิบของแต่ละ target |
 | `StandardSchemaV1` | interface ของ Standard Schema |
 | `Method` | `'GET' \| 'POST' \| ...` |
-| `LoggerOptions`, `AppLoggerOptions` | option ของ `createLogger()` / `app.logger()` (type ของ logger ทั้งหมด import จาก `@sing3demons/kp/logger`) |
+| `LoggerOptions`, `AppLoggerOptions` | option ของ `createLogger()` / `app.logger()` (type ของ logger ทั้งหมด import จาก `@sing3demons/kp-logger`) |
 | `LogRecord`, `Sink`, `LogLevel`, `LogFormat`, `LogType` | record ที่เขียนและปลายทางของ log |
 | `MaskRule`, `MaskPreset` | กฎของ mask |
 | `DependencyInfo`, `FlushOptions`, `FlushErrorOptions` | argument ของ `setDependency()` / `flush()` / `flushError()` |
@@ -1073,7 +1079,7 @@ src/
 ├── main.ts                    # import logger → new App() → logger / onError / register(userRoutes) → start()
 ├── config.ts
 ├── lib/kp.ts                  # จุด import framework จุดเดียว
-├── lib/kp-logger.ts           # = import '@sing3demons/kp/logger'
+├── lib/kp-logger.ts           # = import '@sing3demons/kp-logger' (ชี้ไปที่ packages/kp-logger/src)
 ├── middleware/
 │   └── error.ts               # errorHandler (HTTPException / ValidationError) + notFoundHandler
 └── modules/users/
@@ -1100,7 +1106,7 @@ bun run example:node     # examples/node-app (tsx)
 ```sh
 bun install
 bun test               # runtime tests (router, app, validator, route groups, safe/validate, start)
-bun run typecheck      # tsc: src + test (รวม type tests ใน test/*.test-d.ts) + examples + test/no-logger (ไม่ติดตั้ง logger)
+bun run typecheck      # tsc: src + test + packages/* + examples + test/no-logger (ไม่ติดตั้ง logger)
 bun run build          # สร้าง dist/ (.js + .d.ts)
 bun run test:node-app  # test ของ node-app ด้วย node:test
 ```
@@ -1119,17 +1125,20 @@ src/
 ├── http-exception.ts   # HTTPException
 ├── standard-schema.ts  # Standard Schema V1 interface (vendored)
 ├── types.ts            # Params/ParamKeys/Ctx/Handler/... types
-├── adapter/node.ts     # serve() / getRequestListener() สำหรับ node:http
-└── logger/             # @sing3demons/kp/logger (core ไม่ import โฟลเดอร์นี้)
-    ├── index.ts        # entry ของ subpath: import ./install.ts + export API
-    ├── install.ts      # เพิ่ม app.logger() / c.info() ... (type ผ่าน module augmentation + runtime)
-    ├── logger.ts       # class Logger: detail / summary / dependency / ids
-    ├── config.ts       # อ่าน logger.yaml, env, package.json
-    ├── options.ts      # validate / merge options
-    ├── format.ts       # json / logfmt / text
-    ├── mask.ts         # mask rule + maskData()
-    ├── ids.ts          # uuidv7, traceparent, sanitize id
-    └── types.ts        # LoggerOptions, MaskRule, LogRecord, ...
+└── adapter/node.ts     # serve() / getRequestListener() สำหรับ node:http
+
+packages/kp-logger/     # @sing3demons/kp-logger (package แยก, peerDependency: @sing3demons/kp)
+├── src/
+│   ├── index.ts        # entry: import ./install.ts + export API
+│   ├── install.ts      # เพิ่ม app.logger() / c.info() ... (declare module '@sing3demons/kp' + runtime)
+│   ├── logger.ts       # class Logger: detail / summary / dependency / ids
+│   ├── config.ts       # อ่าน logger.yaml, env, package.json
+│   ├── options.ts      # validate / merge options
+│   ├── format.ts       # json / logfmt / text
+│   ├── mask.ts         # mask rule + maskData()
+│   ├── ids.ts          # uuidv7, traceparent, sanitize id
+│   └── types.ts        # LoggerOptions, MaskRule, LogRecord, ...
+└── test/
 ```
 
 ### Publish เวอร์ชันใหม่ขึ้น GitHub Packages
@@ -1167,6 +1176,18 @@ git push --follow-tags   # push commit และ tag ของเวอร์ช
 - ไม่ต้องเขียน token ลงไฟล์ `.npmrc` ในโปรเจกต์ ถ้าจำเป็นต้องเขียนจริงๆ ให้ใส่ `.npmrc` ใน `.gitignore` ก่อน
 - publish เวอร์ชันเดิมซ้ำไม่ได้ ถ้าจะแก้ต้องขึ้นเวอร์ชันใหม่
 - `npm version` ต้องให้ working tree clean ก่อน (ไม่อย่างนั้นจะขึ้น `Git working directory not clean`) ให้ commit งานให้เสร็จก่อนขึ้นเวอร์ชัน
+
+#### Publish `@sing3demons/kp-logger`
+
+```sh
+cd packages/kp-logger
+npm version patch --no-git-tag-version   # แก้ version ของ kp-logger (tag ของ repo ใช้กับ core)
+npm publish "--//npm.pkg.github.com/:_authToken=$(gh auth token -u sing3demons)"
+```
+
+- `prepublishOnly` ของ kp-logger รัน test / typecheck / build ของ core ก่อน แล้ว build kp-logger โดยอ้าง type จาก `dist/` ของ core
+- ถ้าแก้ core ที่ kp-logger ใช้ (เช่น `RequestHook`) ให้ publish core ก่อน แล้วปรับ `peerDependencies` ของ kp-logger ให้ตรง
+- ขึ้นเวอร์ชัน kp-logger แล้วต้องแก้ `KP_LOGGER_VERSION` ใน `src/cli/scaffold.ts` ให้ตรงกัน (`test/cli.test.ts` เช็คให้) ไม่งั้น CLI จะสร้างโปรเจกต์ที่ใช้เวอร์ชันเก่า
 
 #### เลือกเวอร์ชันด้วย `npm version`
 

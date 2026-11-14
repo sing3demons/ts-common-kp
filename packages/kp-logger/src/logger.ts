@@ -1,4 +1,4 @@
-import { compileMatcher } from '../router.ts'
+import { compileMatcher } from '@sing3demons/kp'
 import { formatters, type Formatter } from './format.ts'
 import { newSpanId, parseTraceparent, sanitizeId, uuidv4, uuidv7 } from './ids.ts'
 import { applyMasks, compileMasks, serializeError, toPlain, type CompiledMask } from './mask.ts'
