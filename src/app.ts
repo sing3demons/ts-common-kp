@@ -5,6 +5,7 @@ import { HTTPException } from './http-exception.ts'
 import { resolveLoggerOptions } from './logger/config.ts'
 import { Logger } from './logger/logger.ts'
 import type { AppLoggerOptions, Env, WithLogger } from './logger/types.ts'
+import type { Ctx, Input } from './types.ts'
 import { TypedRequest } from './request.ts'
 import { compileMatcher, METHOD_ALL, TrieRouter } from './router.ts'
 import type {
@@ -18,7 +19,7 @@ import type {
 type AnyHandler = MiddlewareHandler<any, any, any>
 
 /** A function that adds routes / middleware to an app. */
-export type Plugin<E extends Env = WithLogger> = (app: App<E>) => void
+export type Plugin<E extends Env = {}> = (app: App<E>) => void
 
 export interface StartOptions {
   port?: number
@@ -94,11 +95,13 @@ const defaultErrorHandler: ErrorHandler<any> = (err) => {
 const defaultNotFound: NotFoundHandler<any> = (c) => c.text('404 Not Found', 404)
 
 /**
- * `E` tracks type-level features: `new App()` is `App<{}>` (no log methods on `c` in its
- * handlers), `new App().logger(...)` is `App<WithLogger>`. The `App` type written as an
- * annotation (e.g. a plugin's parameter) defaults to `App<WithLogger>`.
+ * `E` tracks type-level features: `new App()` is `App<{}>` (no log methods on `c`),
+ * `new App().logger(...)` is `App<WithLogger>`. Derive handler types from the app with
+ * `CtxOf<typeof app>` / `EnvOf<typeof app>`.
  */
-class KpApp<E extends Env> {
+export class App<E extends Env = {}> {
+  /** Type-only marker (no runtime value), read by `EnvOf`. */
+  declare readonly '~env'?: E
   #state: AppState = {
     routes: [],
     middlewares: [],
@@ -155,7 +158,7 @@ class KpApp<E extends Env> {
   }
 
   /** Mount a sub-app's routes and middleware under `prefix`. */
-  route(prefix: string, app: KpApp<any>): this {
+  route(prefix: string, app: App<any>): this {
     const sub = app.#state
     const base = joinPaths(this.#base, prefix)
     for (const mw of sub.middlewares) {
@@ -177,9 +180,9 @@ class KpApp<E extends Env> {
    * - a plugin function receives this app (scoped to `prefix`) and adds routes/middleware itself;
    * - a controller instance (class using `@Controller` / `@Get` / ...) has its routes mounted under `prefix`.
    */
-  register(plugin: KpApp<any> | Plugin<E> | object, options: { prefix?: string } = {}): this {
+  register(plugin: App<any> | Plugin<E> | object, options: { prefix?: string } = {}): this {
     const prefix = options.prefix ?? '/'
-    if (plugin instanceof KpApp) return this.route(prefix, plugin)
+    if (plugin instanceof App) return this.route(prefix, plugin)
     if (typeof plugin === 'function') {
       ;(plugin as Plugin<E>)((prefix === '/' ? this : this.basePath(prefix)) as unknown as App<E>)
       return this
@@ -238,7 +241,7 @@ class KpApp<E extends Env> {
 
   /** A view of this app whose routes are registered under `path`. Shares routes, middleware and handlers. */
   basePath(path: string): App<E> {
-    const view = new KpApp<E>()
+    const view = new App<E>()
     view.#state = this.#state
     view.#base = joinPaths(this.#base, path)
     return view as App<E>
@@ -255,7 +258,7 @@ class KpApp<E extends Env> {
    * ```
    *
    * Use the returned app (chain it): its type enables the log methods on `c`.
-   * Types written elsewhere (`Ctx`, `ErrorHandler`, ...) always assume a logger.
+   * Handlers in other files: `type Ctx<A, B> = CtxOf<typeof app, A, B>`.
    */
   logger(options: AppLoggerOptions = {}): App<E & WithLogger> {
     const ready = resolveLoggerOptions(options).then((o) => new Logger(o))
@@ -325,10 +328,18 @@ class KpApp<E extends Env> {
   }
 }
 
-export interface App<E extends Env = WithLogger> extends KpApp<E> {}
+/** The env of an app: `EnvOf<typeof app>` → `WithLogger` for `new App().logger(...)`. */
+export type EnvOf<A> = A extends App<infer E> ? E : never
 
-/** `new App()` → `App<{}>`; `new App<WithLogger>()` for a sub-app (in another file) whose inline handlers log. */
-export const App: new <E extends Env = {}>() => App<E> = KpApp
+/**
+ * The context type of an app, for handlers in other files:
+ *
+ * ```ts
+ * export const app = new App().logger({ path: 'logger.yaml' })
+ * export type Ctx<A extends string | Input = {}, B extends Input = {}> = CtxOf<typeof app, A, B>
+ * ```
+ */
+export type CtxOf<A, X extends string | Input = {}, Y extends Input = {}> = Ctx<X, Y, EnvOf<A>>
 
 /** Sets headers on a response, copying it first when its headers are immutable (e.g. from `fetch()`). */
 const withHeaders = (res: Response, headers: Record<string, string>): Response => {

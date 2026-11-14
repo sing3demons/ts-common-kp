@@ -1,4 +1,13 @@
-export { App, App as Kp, type Plugin, type RunningServer, type ServerInfo, type StartOptions } from './app.ts'
+export {
+  App,
+  App as Kp,
+  type CtxOf,
+  type EnvOf,
+  type Plugin,
+  type RunningServer,
+  type ServerInfo,
+  type StartOptions,
+} from './app.ts'
 export { Context } from './context.ts'
 export { TypedRequest } from './request.ts'
 export { HTTPException, type HTTPExceptionOptions } from './http-exception.ts'

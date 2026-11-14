@@ -16,6 +16,7 @@ describe('cli scaffold', () => {
     expect(files).toContain('.npmrc')
     expect(files).toContain('src/main.ts')
     expect(files).toContain('logger.yaml')
+    expect(files).toContain('src/app.ts')
     expect(files).not.toContain('src/middleware/logger.ts')
     expect(files).toContain('test/users.test.ts')
     expect(files.some((f) => f.startsWith('_'))).toBe(false)

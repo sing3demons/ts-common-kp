@@ -121,7 +121,8 @@ ${run} run dev
 
 \`\`\`
 src/
-  main.ts                 จุดเริ่ม: middleware, error handler, register module
+  app.ts                  สร้าง app (.logger) + type Ctx / ErrorHandler ที่ controller ใช้
+  main.ts                 จุดเริ่ม: error handler, register module, start
   config.ts               อ่านค่าจาก env (PORT)
   middleware/             error handler
   modules/users/          ตัวอย่าง module: schema → repository → service → controller → routes

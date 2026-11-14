@@ -17,7 +17,7 @@ import {
 type HeaderRecord = Record<string, string>
 type RedirectStatus = 300 | 301 | 302 | 303 | 304 | 307 | 308
 
-export class Context<P extends string = any, I extends Input = {}, E extends Env = WithLogger> {
+export class Context<P extends string = any, I extends Input = {}, E extends Env = {}> {
   readonly req: TypedRequest<P, I>
   /** The final response. Middleware may read / replace it after `await next()`. */
   res: Response | undefined
@@ -204,13 +204,13 @@ export class Context<P extends string = any, I extends Input = {}, E extends Env
 }
 
 /**
- * Log methods exist only when `E` has a logger. On an app created without `.logger(...)` they are
- * typed `never`: calling one is a type error ("not callable"), yet such a context can still be
- * passed to code typed with `Ctx` (which assumes a logger and throws at runtime if there is none).
+ * Log methods exist only when `E` has a logger (`new App().logger(...)`). Otherwise they are typed
+ * `never`: calling one is a type error ("not callable"). Handlers in other files get the right
+ * type from the app itself: `type Ctx<A, B> = CtxOf<typeof app, A, B>`.
  */
 type Gate<E extends Env, F> = E extends WithLogger ? F : never
 
-export interface Context<P extends string = any, I extends Input = {}, E extends Env = WithLogger> {
+export interface Context<P extends string = any, I extends Input = {}, E extends Env = {}> {
   /** The request logger (ids, detail lines, summary). Throws if the app has no logger. */
   log: Gate<E, () => Logger>
   /** A new id from the configured generator, e.g. for `setDependency({ dependencyId })`. */

@@ -1,9 +1,8 @@
+import { app } from './app.ts'
 import { config } from './config.ts'
-import { App } from '@sing3demons/kp'
 import { errorHandler, notFoundHandler } from './middleware/error.ts'
 import { userRoutes } from './modules/users/index.ts'
 
-const app = new App().logger({ path: 'logger.yaml' })
 app.onError(errorHandler)
 app.notFound(notFoundHandler)
 app.get('/health', (c) => c.json({ status: 'ok' }))

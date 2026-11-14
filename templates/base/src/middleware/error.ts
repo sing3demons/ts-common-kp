@@ -1,4 +1,5 @@
-import { HTTPException, ValidationError, type ErrorHandler, type NotFoundHandler } from '@sing3demons/kp'
+import { HTTPException, ValidationError } from '@sing3demons/kp'
+import type { ErrorHandler, NotFoundHandler } from '../app.ts'
 
 export const errorHandler: ErrorHandler = (err, c) => {
   if (err instanceof ValidationError) {
