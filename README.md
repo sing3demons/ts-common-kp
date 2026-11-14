@@ -834,31 +834,39 @@ const app = new App().logger({ format: 'logfmt', level: 'debug' }) // ไม่�
 
 ### เปิดใช้ method ของ log (type)
 
-method ของ log บน `c` (`c.info`, `c.log()`, `c.addSummary`, `c.setDependency`, `c.flush` ฯลฯ) ใช้ได้เมื่อสร้าง app ด้วย `.logger(...)` ถ้าไม่มี handler ที่เขียน inline บน app นั้นจะเป็น **type error** (`This expression is not callable`)
+method ของ log บน `c` (`c.info`, `c.log()`, `c.addSummary`, `c.setDependency`, `c.flush` ฯลฯ) มีเฉพาะเมื่อ app สร้างด้วย `.logger(...)` ถ้าไม่มีจะเป็น **type error** (`This expression is not callable`)
 
 ```ts
 const app = new App().logger({ path: 'logger.yaml' })   // ✅ ต้อง chain ใช้ app ที่ .logger() คืนมา
 app.get('/', (c) => c.info('hi').text('ok'))           // ✅
 
-const plain = new App()
-plain.get('/', (c) => c.info('hi').text('ok'))         // ❌ type error: ไม่มี logger
-
-const app2 = new App()
-app2.logger({ path: 'logger.yaml' })                   // ⚠️ type ของ app2 ไม่เปลี่ยน (TypeScript ทำไม่ได้)
-app2.get('/', (c) => c.info('hi').text('ok'))          // ❌ type error → ให้ chain แบบข้างบน
+new App().get('/', (c) => c.info('hi').text('ok'))     // ❌ type error: ไม่มี logger
 ```
 
-type ที่เขียนไว้ในไฟล์อื่น (`Ctx`, `ErrorHandler`, `MiddlewareHandler`, `App` ที่เป็น parameter ของ plugin) ถือว่ามี logger เสมอ ใช้ method ของ log ได้เลยโดยไม่ต้องประกาศอะไรเพิ่ม เพราะ TypeScript ไม่รู้ว่า controller จะถูกใส่ใน app ตัวไหน ถ้าเอาไปใช้กับ app ที่ไม่มี logger จะ throw `logger is not enabled` ตอนเรียก
+handler ที่อยู่ในไฟล์อื่น (controller, error handler) ให้เอา type มาจาก app ของโปรเจกต์ ไม่ใช่จาก framework ตรงๆ (template จาก CLI ทำไว้ใน `src/app.ts` แล้ว):
+
+```ts
+// src/app.ts
+import { App, type CtxOf, type EnvOf, type ErrorHandler as KpErrorHandler, type Input } from '@sing3demons/kp'
+
+export const app = new App().logger({ path: 'logger.yaml' })
+export type Ctx<A extends string | Input = {}, B extends Input = {}> = CtxOf<typeof app, A, B>
+export type ErrorHandler = KpErrorHandler<EnvOf<typeof app>>
+```
 
 ```ts
 // user.controller.ts
+import type { Ctx } from '../../app.ts'
+
 create(c: Ctx<{ json: CreateUser }>) {
-  c.addSummary('user_id', 1)                           // ✅
+  c.addSummary('user_id', 1)   // ✅ เพราะ app มี .logger()
 }
 ```
 
-- sub-app ที่สร้างในไฟล์อื่นแล้วอยากเขียน log ใน handler inline ให้สร้างด้วย `new App<WithLogger>()` แล้ว mount เข้า app หลักที่มี `.logger(...)`
-- test ที่สร้าง app เองให้ใช้ `new App().logger({ level: 'silent' })` เพื่อไม่ให้มี log ออกมา
+ถ้าเอา `.logger(...)` ออกจาก `src/app.ts` method ของ log จะหายไปจาก `Ctx` ทุกไฟล์และเป็น type error ทันที
+
+- `Ctx` / `ErrorHandler` / `MiddlewareHandler` ที่ import จาก `@sing3demons/kp` ตรงๆ ไม่มี log
+- test ที่สร้าง app เองให้ใช้ `new App().logger({ level: 'silent' })` เพื่อไม่ให้มี log ออกมา และ import type จาก `src/app.ts` ด้วย `import type` (ไม่สร้าง app จริงตอนรัน test)
 - `c.requestId` / `c.correlationId` ใช้ได้เสมอ (เป็น `undefined` ถ้าไม่มี logger)
 
 ### config
@@ -1035,7 +1043,8 @@ adapter แปลง `IncomingMessage` เป็น `Request` และ `Respons
 | `LogRecord`, `Sink`, `LogLevel`, `LogFormat`, `LogType` | record ที่เขียนและปลายทางของ log |
 | `MaskRule`, `MaskPreset` | กฎของ mask |
 | `DependencyInfo`, `FlushOptions`, `FlushErrorOptions` | argument ของ `setDependency()` / `flush()` / `flushError()` |
-| `WithLogger`, `Env` | type ของ app ที่มี logger เช่น `new App<WithLogger>()` (ดู [Logger](#เปิดใช้-method-ของ-log-type)) |
+| `CtxOf<typeof app, A?, B?>`, `EnvOf<typeof app>` | type ของ context / env ตาม app จริง (ดู [Logger](#เปิดใช้-method-ของ-log-type)) |
+| `WithLogger`, `Env` | env ของ app ที่มี logger |
 
 ตัวอย่าง middleware ที่นำไปใช้ซ้ำได้:
 
@@ -1074,7 +1083,8 @@ export const requireApiKey = (key: string): MiddlewareHandler => async (c, next)
 
 ```
 src/
-├── main.ts                    # new App().logger() → onError / register(userRoutes) → start()
+├── app.ts                     # new App().logger() + type Ctx / ErrorHandler ที่ controller ใช้
+├── main.ts                    # onError / register(userRoutes) → start()
 ├── config.ts
 ├── lib/kp.ts                  # จุด import framework จุดเดียว
 ├── middleware/
