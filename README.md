@@ -1189,6 +1189,54 @@ npm publish "--//npm.pkg.github.com/:_authToken=$(gh auth token -u sing3demons)"
 - ถ้าแก้ core ที่ kp-logger ใช้ (เช่น `RequestHook`) ให้ publish core ก่อน แล้วปรับ `peerDependencies` ของ kp-logger ให้ตรง
 - ขึ้นเวอร์ชัน kp-logger แล้วต้องแก้ `KP_LOGGER_VERSION` ใน `src/cli/scaffold.ts` ให้ตรงกัน (`test/cli.test.ts` เช็คให้) ไม่งั้น CLI จะสร้างโปรเจกต์ที่ใช้เวอร์ชันเก่า
 
+#### ปล่อยทั้ง 2 package พร้อมกัน (ลำดับที่ต้องทำ)
+
+ใช้เมื่อแก้ทั้ง core และ kp-logger ในรอบเดียวกัน **ต้อง publish core ก่อนเสมอ** เพราะ kp-logger อ้าง core เป็น peerDependency (ตัวอย่างข้างล่างคือการปล่อยครั้งแรกที่แยก logger: core `3.0.0` + kp-logger `1.0.0`)
+
+1. **commit งานให้เสร็จ** (`npm version` ต้องการ working tree ที่ clean)
+
+   ```sh
+   git add -A
+   git commit -m "feat(logger): move logger to @sing3demons/kp-logger package"
+   ```
+
+2. **ตรวจเวอร์ชันให้ตรงกันก่อนขึ้นเวอร์ชัน core**
+   - `peerDependencies["@sing3demons/kp"]` ใน `packages/kp-logger/package.json` ต้องครอบเวอร์ชัน core ที่กำลังจะ publish (เช่น `^3.0.0`)
+   - `KP_LOGGER_VERSION` ใน `src/cli/scaffold.ts` ต้องตรงกับ `version` ของ kp-logger (เช่น `^1.0.0`) ถ้าแก้ไฟล์ไหนให้ commit ก่อนไปขั้นถัดไป
+
+3. **publish core** (เอา API ออกหรือเปลี่ยน = `major`, เพิ่มอย่างเดียว = `minor`, แก้บั๊ก = `patch`)
+
+   ```sh
+   npm version major        # เช่น 2.0.0 → 3.0.0 แล้วสร้าง commit + tag
+   npm publish "--//npm.pkg.github.com/:_authToken=$(gh auth token -u sing3demons)"
+   ```
+
+4. **publish kp-logger** (ครั้งแรกไม่ต้องขึ้นเวอร์ชัน รอบต่อไปใช้ `npm version <patch|minor|major> --no-git-tag-version` แล้ว commit ก่อน publish)
+
+   ```sh
+   cd packages/kp-logger
+   npm publish "--//npm.pkg.github.com/:_authToken=$(gh auth token -u sing3demons)"
+   cd ../..
+   ```
+
+5. **push commit และ tag**
+
+   ```sh
+   git push --follow-tags
+   ```
+
+6. **ทดสอบจากของที่ publish จริง**
+
+   ```sh
+   npx @sing3demons/kp create my-api   # package.json ต้องได้ @sing3demons/kp และ @sing3demons/kp-logger เวอร์ชันใหม่
+   ```
+
+ถ้าได้ `403 ... token does not match expected scopes` ตอน publish แปลว่า token ของ `sing3demons` ยังไม่มี `write:packages` ให้รันคำสั่งนี้ (ตอนยืนยันใน browser ต้อง login เป็น `sing3demons`) แล้ว publish ใหม่:
+
+```sh
+gh auth refresh -h github.com -s write:packages -u sing3demons
+```
+
 #### เลือกเวอร์ชันด้วย `npm version`
 
 ใช้ [semver](https://semver.org) ตัวอย่างข้างล่างคิดจากเวอร์ชันปัจจุบัน `1.0.1`
