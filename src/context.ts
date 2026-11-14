@@ -1,3 +1,5 @@
+import type { Logger } from './logger/logger.ts'
+import type { DependencyInfo, Env, FlushErrorOptions, FlushOptions, MaskRule, WithLogger } from './logger/types.ts'
 import { TypedRequest } from './request.ts'
 import type { StandardSchemaV1 } from './standard-schema.ts'
 import type { Input, NotFoundHandler } from './types.ts'
@@ -15,13 +17,14 @@ import {
 type HeaderRecord = Record<string, string>
 type RedirectStatus = 300 | 301 | 302 | 303 | 304 | 307 | 308
 
-export class Context<P extends string = any, I extends Input = {}> {
+export class Context<P extends string = any, I extends Input = {}, E extends Env = WithLogger> {
   readonly req: TypedRequest<P, I>
   /** The final response. Middleware may read / replace it after `await next()`. */
   res: Response | undefined
   #status = 200
   #headers: Headers | undefined
   #notFound: NotFoundHandler | undefined
+  #logger: Logger | undefined
 
   constructor(req: TypedRequest<P, I>, notFound?: NotFoundHandler) {
     this.req = req
@@ -133,7 +136,106 @@ export class Context<P extends string = any, I extends Input = {}> {
     return parseAsync(schema, await readAsync(this.req, target), target)
   }
 
+  // -- logging ------------------------------------------------------------------
+  // The log methods (`c.info`, `c.addSummary`, ...) are typed in the `Context` interface below
+  // and installed on the prototype here, inside the class body so they can read `#logger`.
+
+  /** @internal Set by the app when it was created with `.logger(...)`. */
+  setLogger(logger: Logger): void {
+    this.#logger = logger
+  }
+
+  get requestId(): string | undefined {
+    return this.#logger?.requestId
+  }
+
+  get correlationId(): string | undefined {
+    return this.#logger?.correlationId
+  }
+
+  static {
+    const log = (c: Context): Logger => {
+      if (!c.#logger) throw new Error('logger is not enabled: create the app with `new App().logger(...)`')
+      return c.#logger
+    }
+    /** Methods that forward to the logger and return the context for chaining. */
+    const chained = [
+      'debug',
+      'info',
+      'warn',
+      'error',
+      'maskDebug',
+      'maskInfo',
+      'maskWarn',
+      'maskError',
+      'addDetailAdditionalInfo',
+      'clearDetailAdditionalInfo',
+      'addSummary',
+      'addSummaryAdditionalInfo',
+      'clearSummaryAdditionalInfo',
+      'flush',
+      'flushError',
+    ] as const
+    const methods: Record<string, (this: Context, ...args: any[]) => unknown> = {
+      log() {
+        return log(this)
+      },
+      genId() {
+        return log(this).genId()
+      },
+      setDependency(info: DependencyInfo) {
+        return log(this).setDependency(info)
+      },
+    }
+    for (const name of chained) {
+      methods[name] = function (this: Context, ...args: any[]) {
+        ;(log(this)[name] as (...a: any[]) => unknown)(...args)
+        return this
+      }
+    }
+    for (const [name, fn] of Object.entries(methods)) {
+      Object.defineProperty(this.prototype, name, { value: fn, writable: true, configurable: true })
+    }
+  }
+
   notFound(): Response | Promise<Response> {
     return this.#notFound ? this.#notFound(this as Context) : this.text('404 Not Found', 404)
   }
+}
+
+/**
+ * Log methods exist only when `E` has a logger. On an app created without `.logger(...)` they are
+ * typed `never`: calling one is a type error ("not callable"), yet such a context can still be
+ * passed to code typed with `Ctx` (which assumes a logger and throws at runtime if there is none).
+ */
+type Gate<E extends Env, F> = E extends WithLogger ? F : never
+
+export interface Context<P extends string = any, I extends Input = {}, E extends Env = WithLogger> {
+  /** The request logger (ids, detail lines, summary). Throws if the app has no logger. */
+  log: Gate<E, () => Logger>
+  /** A new id from the configured generator, e.g. for `setDependency({ dependencyId })`. */
+  genId: Gate<E, () => string>
+
+  debug: Gate<E, (action: string, data?: unknown) => this>
+  info: Gate<E, (action: string, data?: unknown) => this>
+  warn: Gate<E, (action: string, data?: unknown) => this>
+  error: Gate<E, (action: string, data?: unknown) => this>
+
+  maskDebug: Gate<E, (rules: MaskRule[], action: string, data?: unknown) => this>
+  maskInfo: Gate<E, (rules: MaskRule[], action: string, data?: unknown) => this>
+  maskWarn: Gate<E, (rules: MaskRule[], action: string, data?: unknown) => this>
+  maskError: Gate<E, (rules: MaskRule[], action: string, data?: unknown) => this>
+
+  /** Dependency fields for the next detail line only: `c.setDependency({ dependency: 'mysql' }).info('db_request')`. */
+  setDependency: Gate<E, (info: DependencyInfo) => Logger>
+
+  addDetailAdditionalInfo: Gate<E, (key: string, value: unknown) => this>
+  clearDetailAdditionalInfo: Gate<E, () => this>
+
+  addSummary: Gate<E, (key: string, value: unknown) => this>
+  addSummaryAdditionalInfo: Gate<E, (key: string, value: unknown) => this>
+  clearSummaryAdditionalInfo: Gate<E, () => this>
+
+  flush: Gate<E, (options?: FlushOptions) => this>
+  flushError: Gate<E, (error: unknown, options?: FlushErrorOptions) => this>
 }

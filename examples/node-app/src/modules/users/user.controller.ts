@@ -43,6 +43,7 @@ export class UserController {
   create(c: Ctx<{ json: CreateUser }>) {
     const body = c.req.valid('json')
     const result = this.service.create(body)
+    c.addSummary('user_id', result.id)
     return c.json(result, 201)
   }
 

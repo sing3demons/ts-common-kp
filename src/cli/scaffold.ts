@@ -123,9 +123,10 @@ ${run} run dev
 src/
   main.ts                 จุดเริ่ม: middleware, error handler, register module
   config.ts               อ่านค่าจาก env (PORT)
-  middleware/             logger, error handler
+  middleware/             error handler
   modules/users/          ตัวอย่าง module: schema → repository → service → controller → routes
 test/                     test ผ่าน app.request() ไม่ต้องเปิด port
+logger.yaml               config ของ logger (format, level, mask, id) — ดู app.logger() ใน main.ts
 \`\`\`
 
 API ตัวอย่าง: \`GET /health\`, \`GET|POST /api/users\`, \`GET|PATCH|DELETE /api/users/:id\`

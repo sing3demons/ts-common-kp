@@ -5,7 +5,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
     return c.json({ error: err.message, issues: err.issues }, err.status)
   }
   if (err instanceof HTTPException) return c.json({ error: err.message }, err.status)
-  console.error(err)
+  c.error('unhandled_error', err)
   return c.json({ error: 'Internal Server Error' }, 500)
 }
 

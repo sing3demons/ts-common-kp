@@ -23,6 +23,29 @@ export {
   type ValidationIssues,
 } from './validation.ts'
 export type { StandardSchemaV1 } from './standard-schema.ts'
+export {
+  createLogger,
+  loadLoggerConfig,
+  Logger,
+  maskData,
+  type AppLoggerOptions,
+  type DependencyInfo,
+  type Env,
+  type FlushErrorOptions,
+  type FlushOptions,
+  type IdGenerator,
+  type IdOptions,
+  type LogFormat,
+  type LoggerOptions,
+  type LogLevel,
+  type LogLevelOption,
+  type LogRecord,
+  type LogType,
+  type MaskPreset,
+  type MaskRule,
+  type Sink,
+  type WithLogger,
+} from './logger/index.ts'
 export type {
   Ctx,
   ErrorHandler,

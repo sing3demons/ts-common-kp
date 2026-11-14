@@ -2,7 +2,19 @@
  * Compile-time tests. Checked by `tsc --noEmit` (never executed).
  */
 import { z } from 'zod'
-import { App, Controller, Get, Post, validator, type Ctx, type ParamKeys, type Params } from '../src/index.ts'
+import {
+  App,
+  Controller,
+  Get,
+  Post,
+  validator,
+  type Ctx,
+  type ParamKeys,
+  type Params,
+  type ErrorHandler,
+  type MiddlewareHandler,
+  type WithLogger,
+} from '../src/index.ts'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 type Expect<T extends true> = T
@@ -190,3 +202,66 @@ class DecoratedCtrl {
   }
 }
 new App().register(new DecoratedCtrl(), { prefix: '/api' })
+
+// -- logger gating ---------------------------------------------------------------
+// Inline handlers of `new App()` (no logger) can't call log methods; `new App().logger(...)` can.
+// Types written elsewhere (`Ctx`, `ErrorHandler`, `App` annotations) assume a logger.
+{
+  const plain = new App()
+  plain.get('/', (c) => {
+    // @ts-expect-error — no logger on this app
+    c.info('x')
+    // @ts-expect-error — no logger on this app
+    c.log()
+    // @ts-expect-error — no logger on this app
+    c.addSummary('k', 1)
+    // @ts-expect-error — no logger on this app
+    c.setDependency({ dependency: 'db' })
+    c.requestId // getters stay available (undefined without a logger)
+    return c.text('ok')
+  })
+  plain.onError((err, c) => {
+    // @ts-expect-error — no logger on this app
+    c.error('boom', err)
+    return c.text('x', 500)
+  })
+  plain.use(async (c, next) => {
+    // @ts-expect-error — no logger on this app
+    c.warn('mw')
+    await next()
+  })
+
+  // handlers typed elsewhere assume a logger and still plug into any app
+  const standalone = (c: Ctx<{ json: { name: string; age: number } }>) => c.info('x').json(c.req.valid('json'))
+  const onErr: ErrorHandler = (err, c) => c.error('unhandled', err).text('x', 500)
+  const mw: MiddlewareHandler = async (c, next) => {
+    c.info('mw')
+    await next()
+  }
+  plain.use(mw).onError(onErr).post('/s', validator('json', createUser), (c) => standalone(c))
+  const plugin = (a: App) => a.get('/p', (c) => c.info('in plugin').text('ok'))
+  plain.register(plugin)
+
+  const logged = new App().logger({ level: 'silent' })
+  type _l = Expect<Equal<typeof logged, App<WithLogger>>>
+  logged.use(async (c, next) => {
+    c.info('mw')
+    await next()
+  })
+  logged.post('/users', validator('json', createUser), (c) => {
+    const body = c.req.valid('json')
+    const r = c.info('validated', body).addSummary('name', body.name)
+    type _r = Expect<Equal<typeof r, typeof c>>
+    c.log().info('a').warn('b')
+    c.setDependency({ dependency: 'db', dependencyId: c.genId() }).info('db_request')
+    return c.flush({ appResultCode: '20000' }).json(body, 201)
+  })
+  logged.onError((err, c) => c.error('unhandled', err).text('x', 500))
+  logged.notFound((c) => c.warn('not found').text('404', 404))
+  logged.basePath('/v1').get('/', (c) => c.info('nested').text('ok'))
+  logged.route('/plain', plain).register(plugin)
+
+  // a sub-app in another file whose inline handlers log
+  const sub = new App<WithLogger>().basePath('/users').get('/', (c) => c.info('list').json([]))
+  logged.route('/', sub)
+}

@@ -1,4 +1,5 @@
 import type { Context } from './context.ts'
+import type { Env, WithLogger } from './logger/types.ts'
 
 /** Flattens intersections so hover types stay readable. */
 export type Simplify<T> = { [K in keyof T]: T[K] } & {}
@@ -52,17 +53,26 @@ export type Input = { [K in ValidationTarget]?: unknown }
 
 export type Next = () => Promise<void>
 
-export type Handler<P extends string = any, I extends Input = {}> = (
-  c: Context<P, I>,
-) => Response | Promise<Response>
+// Handler types are declared through a method (`{ fn(...): R }['fn']`) so their parameter is
+// checked bivariantly: a handler typed elsewhere (default env = has logger) can still be
+// registered on an app without a logger, while inline handlers of that app get a context
+// without the log methods.
 
-export type MiddlewareHandler<P extends string = any, I extends Input = {}> = (
-  c: Context<P, I>,
-  next: Next,
-) => Response | void | Promise<Response | void>
+export type Handler<P extends string = any, I extends Input = {}, E extends Env = WithLogger> = {
+  fn(c: Context<P, I, E>): Response | Promise<Response>
+}['fn']
 
-export type ErrorHandler = (err: Error, c: Context) => Response | Promise<Response>
-export type NotFoundHandler = (c: Context) => Response | Promise<Response>
+export type MiddlewareHandler<P extends string = any, I extends Input = {}, E extends Env = WithLogger> = {
+  fn(c: Context<P, I, E>, next: Next): Response | void | Promise<Response | void>
+}['fn']
+
+export type ErrorHandler<E extends Env = WithLogger> = {
+  fn(err: Error, c: Context<any, {}, E>): Response | Promise<Response>
+}['fn']
+
+export type NotFoundHandler<E extends Env = WithLogger> = {
+  fn(c: Context<any, {}, E>): Response | Promise<Response>
+}['fn']
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD'
 
@@ -70,28 +80,28 @@ export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | '
  * Overloaded route registration signature. Each middleware / validator may
  * contribute an `Input`; they are intersected and handed to the final handler.
  */
-export interface HandlerInterface<Self> {
-  <P extends string>(path: P, handler: Handler<P, {}>): Self
+export interface HandlerInterface<Self, E extends Env = WithLogger> {
+  <P extends string>(path: P, handler: Handler<P, {}, E>): Self
 
   <P extends string, I1 extends Input = {}>(
     path: P,
-    m1: MiddlewareHandler<P, I1>,
-    handler: Handler<P, I1>,
+    m1: MiddlewareHandler<P, I1, E>,
+    handler: Handler<P, I1, E>,
   ): Self
 
   <P extends string, I1 extends Input = {}, I2 extends Input = {}>(
     path: P,
-    m1: MiddlewareHandler<P, I1>,
-    m2: MiddlewareHandler<P, I2>,
-    handler: Handler<P, I1 & I2>,
+    m1: MiddlewareHandler<P, I1, E>,
+    m2: MiddlewareHandler<P, I2, E>,
+    handler: Handler<P, I1 & I2, E>,
   ): Self
 
   <P extends string, I1 extends Input = {}, I2 extends Input = {}, I3 extends Input = {}>(
     path: P,
-    m1: MiddlewareHandler<P, I1>,
-    m2: MiddlewareHandler<P, I2>,
-    m3: MiddlewareHandler<P, I3>,
-    handler: Handler<P, I1 & I2 & I3>,
+    m1: MiddlewareHandler<P, I1, E>,
+    m2: MiddlewareHandler<P, I2, E>,
+    m3: MiddlewareHandler<P, I3, E>,
+    handler: Handler<P, I1 & I2 & I3, E>,
   ): Self
 
   <
@@ -102,11 +112,11 @@ export interface HandlerInterface<Self> {
     I4 extends Input = {},
   >(
     path: P,
-    m1: MiddlewareHandler<P, I1>,
-    m2: MiddlewareHandler<P, I2>,
-    m3: MiddlewareHandler<P, I3>,
-    m4: MiddlewareHandler<P, I4>,
-    handler: Handler<P, I1 & I2 & I3 & I4>,
+    m1: MiddlewareHandler<P, I1, E>,
+    m2: MiddlewareHandler<P, I2, E>,
+    m3: MiddlewareHandler<P, I3, E>,
+    m4: MiddlewareHandler<P, I4, E>,
+    handler: Handler<P, I1 & I2 & I3 & I4, E>,
   ): Self
 
   <
@@ -118,12 +128,12 @@ export interface HandlerInterface<Self> {
     I5 extends Input = {},
   >(
     path: P,
-    m1: MiddlewareHandler<P, I1>,
-    m2: MiddlewareHandler<P, I2>,
-    m3: MiddlewareHandler<P, I3>,
-    m4: MiddlewareHandler<P, I4>,
-    m5: MiddlewareHandler<P, I5>,
-    handler: Handler<P, I1 & I2 & I3 & I4 & I5>,
+    m1: MiddlewareHandler<P, I1, E>,
+    m2: MiddlewareHandler<P, I2, E>,
+    m3: MiddlewareHandler<P, I3, E>,
+    m4: MiddlewareHandler<P, I4, E>,
+    m5: MiddlewareHandler<P, I5, E>,
+    handler: Handler<P, I1 & I2 & I3 & I4 & I5, E>,
   ): Self
 }
 

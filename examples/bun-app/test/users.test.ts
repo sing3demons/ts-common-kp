@@ -12,7 +12,7 @@ const json = (method: string, body: unknown) => ({
 describe('bun-app /api/users', () => {
   let app: App
   beforeEach(() => {
-    app = new App().onError(errorHandler).notFound(notFoundHandler).register(createUserRoutes())
+    app = new App().logger({ level: 'silent' }).onError(errorHandler).notFound(notFoundHandler).register(createUserRoutes())
   })
 
   test('CRUD flow', async () => {

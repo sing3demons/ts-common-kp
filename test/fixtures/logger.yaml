@@ -1,0 +1,18 @@
+service: fixture-service
+version: 2.0
+level: debug
+format: logfmt
+skip: ['/health']
+ids:
+  generator: uuidv4
+  request:
+    header: X-Req-Id
+detail:
+  data: true
+masks:
+  - field: password
+    pattern: full
+  - field: phone
+    pattern: custom
+    regex: '\d(?=\d{4})'
+    replacement: '#'

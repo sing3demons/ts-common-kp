@@ -1,0 +1,29 @@
+# Logger config — โหลดด้วย app.logger({ path: 'logger.yaml' })
+# ค่าที่ส่งใน app.logger({...}) และ env LOG_LEVEL / LOG_FORMAT จะทับค่าในไฟล์นี้
+
+# service / version: ถ้าไม่ใส่จะใช้ name / version จาก package.json
+# service: my-service
+# version: 1.0.0
+
+level: info          # debug | info | warn | error | silent (กรองเฉพาะ detail log)
+format: json         # json | logfmt | text
+
+skip:                # path ที่ไม่เขียน summary (ยังมี id และ detail log ได้)
+  - /health
+
+ids:
+  generator: uuidv7  # uuidv7 | uuidv4
+  request:
+    header: x-request-id
+  correlation:
+    header: x-correlation-id
+  trace: true        # อ่าน W3C traceparent ถ้ามี
+
+detail:
+  data: false        # true = เพิ่มฟิลด์ data (object) นอกจาก message (string)
+
+masks:               # ปิดข้อมูลก่อนเขียน log
+  - field: password
+    pattern: full
+  - field: '*.password'
+    pattern: full

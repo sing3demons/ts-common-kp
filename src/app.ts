@@ -2,6 +2,9 @@ import { compose } from './compose.ts'
 import { Context } from './context.ts'
 import { getControllerRoutes } from './decorators.ts'
 import { HTTPException } from './http-exception.ts'
+import { resolveLoggerOptions } from './logger/config.ts'
+import { Logger } from './logger/logger.ts'
+import type { AppLoggerOptions, Env, WithLogger } from './logger/types.ts'
 import { TypedRequest } from './request.ts'
 import { compileMatcher, METHOD_ALL, TrieRouter } from './router.ts'
 import type {
@@ -12,10 +15,10 @@ import type {
   NotFoundHandler,
 } from './types.ts'
 
-type AnyHandler = MiddlewareHandler<any, any>
+type AnyHandler = MiddlewareHandler<any, any, any>
 
 /** A function that adds routes / middleware to an app. */
-export type Plugin = (app: App) => void
+export type Plugin<E extends Env = WithLogger> = (app: App<E>) => void
 
 export interface StartOptions {
   port?: number
@@ -59,8 +62,15 @@ interface AppState {
   routes: RouteDef[]
   middlewares: MiddlewareDef[]
   router: TrieRouter<AnyHandler[]>
-  errorHandler: ErrorHandler
-  notFoundHandler: NotFoundHandler
+  errorHandler: ErrorHandler<any>
+  notFoundHandler: NotFoundHandler<any>
+  logger?: LoggerSlot
+}
+
+/** Config is loaded asynchronously; requests wait for `ready`, `start()` surfaces load errors. */
+interface LoggerSlot {
+  ready: Promise<Logger>
+  instance?: Logger
 }
 
 export const joinPaths = (...parts: string[]): string => {
@@ -72,7 +82,7 @@ export const joinPaths = (...parts: string[]): string => {
   return withLead.length > 1 && withLead.endsWith('/') ? withLead.slice(0, -1) : withLead
 }
 
-const defaultErrorHandler: ErrorHandler = (err) => {
+const defaultErrorHandler: ErrorHandler<any> = (err) => {
   if (err instanceof HTTPException) return err.getResponse()
   console.error(err)
   return new Response('Internal Server Error', {
@@ -81,9 +91,14 @@ const defaultErrorHandler: ErrorHandler = (err) => {
   })
 }
 
-const defaultNotFound: NotFoundHandler = (c) => c.text('404 Not Found', 404)
+const defaultNotFound: NotFoundHandler<any> = (c) => c.text('404 Not Found', 404)
 
-export class App {
+/**
+ * `E` tracks type-level features: `new App()` is `App<{}>` (no log methods on `c` in its
+ * handlers), `new App().logger(...)` is `App<WithLogger>`. The `App` type written as an
+ * annotation (e.g. a plugin's parameter) defaults to `App<WithLogger>`.
+ */
+class KpApp<E extends Env> {
   #state: AppState = {
     routes: [],
     middlewares: [],
@@ -93,13 +108,13 @@ export class App {
   }
   #base = '/'
 
-  get: HandlerInterface<this> = this.#method('GET')
-  post: HandlerInterface<this> = this.#method('POST')
-  put: HandlerInterface<this> = this.#method('PUT')
-  patch: HandlerInterface<this> = this.#method('PATCH')
-  delete: HandlerInterface<this> = this.#method('DELETE')
-  options: HandlerInterface<this> = this.#method('OPTIONS')
-  all: HandlerInterface<this> = this.#method(METHOD_ALL)
+  get: HandlerInterface<this, E> = this.#method('GET')
+  post: HandlerInterface<this, E> = this.#method('POST')
+  put: HandlerInterface<this, E> = this.#method('PUT')
+  patch: HandlerInterface<this, E> = this.#method('PATCH')
+  delete: HandlerInterface<this, E> = this.#method('DELETE')
+  options: HandlerInterface<this, E> = this.#method('OPTIONS')
+  all: HandlerInterface<this, E> = this.#method(METHOD_ALL)
 
   #method(method: string): any {
     return (path: string, ...handlers: AnyHandler[]) => {
@@ -129,8 +144,8 @@ export class App {
    * Register middleware. Without a path it applies to every request under this
    * app's base path. Middleware runs (in registration order) before the route handler.
    */
-  use(...handlers: AnyHandler[]): this
-  use(path: string, ...handlers: AnyHandler[]): this
+  use(...handlers: MiddlewareHandler<any, any, E>[]): this
+  use(path: string, ...handlers: MiddlewareHandler<any, any, E>[]): this
   use(arg: string | AnyHandler, ...rest: AnyHandler[]): this {
     const [path, handlers] =
       typeof arg === 'string' ? [arg, rest] : ['*', [arg, ...rest]]
@@ -140,7 +155,7 @@ export class App {
   }
 
   /** Mount a sub-app's routes and middleware under `prefix`. */
-  route(prefix: string, app: App): this {
+  route(prefix: string, app: KpApp<any>): this {
     const sub = app.#state
     const base = joinPaths(this.#base, prefix)
     for (const mw of sub.middlewares) {
@@ -162,11 +177,11 @@ export class App {
    * - a plugin function receives this app (scoped to `prefix`) and adds routes/middleware itself;
    * - a controller instance (class using `@Controller` / `@Get` / ...) has its routes mounted under `prefix`.
    */
-  register(plugin: App | Plugin | object, options: { prefix?: string } = {}): this {
+  register(plugin: KpApp<any> | Plugin<E> | object, options: { prefix?: string } = {}): this {
     const prefix = options.prefix ?? '/'
-    if (plugin instanceof App) return this.route(prefix, plugin)
+    if (plugin instanceof KpApp) return this.route(prefix, plugin)
     if (typeof plugin === 'function') {
-      ;(plugin as Plugin)(prefix === '/' ? this : this.basePath(prefix))
+      ;(plugin as Plugin<E>)((prefix === '/' ? this : this.basePath(prefix)) as unknown as App<E>)
       return this
     }
     const controller = getControllerRoutes(plugin)
@@ -183,6 +198,7 @@ export class App {
    * Resolves once the server is listening.
    */
   async start(options: StartOptions = {}, onListen?: (info: ServerInfo) => void): Promise<RunningServer> {
+    if (this.#state.logger) await this.#state.logger.ready
     const port = options.port ?? 3000
     const hostname = options.hostname
     const bun = (globalThis as { Bun?: BunLike }).Bun
@@ -221,19 +237,45 @@ export class App {
   }
 
   /** A view of this app whose routes are registered under `path`. Shares routes, middleware and handlers. */
-  basePath(path: string): App {
-    const view = new App()
+  basePath(path: string): App<E> {
+    const view = new KpApp<E>()
     view.#state = this.#state
     view.#base = joinPaths(this.#base, path)
-    return view
+    return view as App<E>
   }
 
-  onError(handler: ErrorHandler): this {
+  /**
+   * Request logging: ids (correlation / request / trace), detail lines via `c.info(...)`
+   * and one summary line per request. Runs around every middleware, whatever the `use` order.
+   *
+   * ```ts
+   * const app = new App().logger({ path: 'logger.yaml' })   // YAML config
+   * new App().logger({ path: 'logger.yaml', format: 'text' })  // options override the file
+   * new App().logger({ format: 'logfmt', level: 'debug' })
+   * ```
+   *
+   * Use the returned app (chain it): its type enables the log methods on `c`.
+   * Types written elsewhere (`Ctx`, `ErrorHandler`, ...) always assume a logger.
+   */
+  logger(options: AppLoggerOptions = {}): App<E & WithLogger> {
+    const ready = resolveLoggerOptions(options).then((o) => new Logger(o))
+    const slot: LoggerSlot = { ready }
+    ready.then(
+      (l) => {
+        slot.instance = l
+      },
+      () => {}, // surfaced by start() / the first request
+    )
+    this.#state.logger = slot
+    return this as unknown as App<E & WithLogger>
+  }
+
+  onError(handler: ErrorHandler<E>): this {
     this.#state.errorHandler = handler
     return this
   }
 
-  notFound(handler: NotFoundHandler): this {
+  notFound(handler: NotFoundHandler<E>): this {
     this.#state.notFoundHandler = handler
     return this
   }
@@ -245,20 +287,31 @@ export class App {
     const path = url.pathname
     const match = state.router.match(request.method, path)
 
+    const slot = state.logger
+    const base = slot ? (slot.instance ?? (await slot.ready)) : undefined
+    const log = base?.forRequest(request.headers, request.method, path)
+
     const c = new Context(new TypedRequest(request, match?.params ?? {}, url), state.notFoundHandler)
+    if (log) c.setLogger(log)
     const handlers: AnyHandler[] = []
     for (const mw of state.middlewares) if (mw.match(path)) handlers.push(mw.handler)
     if (match) handlers.push(...match.handler)
     else handlers.push((ctx) => ctx.notFound())
 
+    let thrown: Error | undefined
     try {
       await compose(handlers)(c)
       if (!c.res) throw new Error(`No response returned for ${request.method} ${path}`)
     } catch (err) {
-      c.res = await state.errorHandler(err instanceof Error ? err : new Error(String(err)), c)
+      thrown = err instanceof Error ? err : new Error(String(err))
+      c.res = await state.errorHandler(thrown, c)
     }
 
-    const res = c.res
+    let res = c.res
+    if (log) {
+      log.finishRequest(res.status, thrown)
+      res = withHeaders(res, log.responseHeaders())
+    }
     return request.method === 'HEAD'
       ? new Response(null, { status: res.status, statusText: res.statusText, headers: res.headers })
       : res
@@ -272,9 +325,26 @@ export class App {
   }
 }
 
+export interface App<E extends Env = WithLogger> extends KpApp<E> {}
+
+/** `new App()` → `App<{}>`; `new App<WithLogger>()` for a sub-app (in another file) whose inline handlers log. */
+export const App: new <E extends Env = {}>() => App<E> = KpApp
+
+/** Sets headers on a response, copying it first when its headers are immutable (e.g. from `fetch()`). */
+const withHeaders = (res: Response, headers: Record<string, string>): Response => {
+  try {
+    for (const [k, v] of Object.entries(headers)) res.headers.set(k, v)
+    return res
+  } catch {
+    const copy = new Response(res.body, res)
+    for (const [k, v] of Object.entries(headers)) copy.headers.set(k, v)
+    return copy
+  }
+}
+
 /** Keeps a mounted sub-app's `onError` in effect for its own routes. */
 const scopedErrorHandler =
-  (handler: ErrorHandler): AnyHandler =>
+  (handler: ErrorHandler<any>): AnyHandler =>
   async (c, next) => {
     try {
       await next()

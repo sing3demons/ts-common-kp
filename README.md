@@ -35,6 +35,11 @@ Web framework ขนาดเล็กสไตล์ [Hono](https://hono.dev) �
 - [Handler ในรูปแบบ class: `Ctx`](#handler-ในรูปแบบ-class-ctx)
 - [Controller แบบ decorator: `@Controller` / `@Get` / ...](#controller-แบบ-decorator-controller--get--)
 - [Error: `HTTPException` / `ValidationError`](#error)
+- [Logger](#logger)
+  - [เปิดใช้ method ของ log (type)](#เปิดใช้-method-ของ-log-type)
+  - [config](#config)
+  - [detail log](#detail-log) / [summary log](#summary-log) / [dependency](#dependency)
+  - [mask ข้อมูล](#mask-ข้อมูล)
 - [Node adapter](#node-adapter)
 - [Types ที่ export](#types-ที่-export)
 - [พฤติกรรมที่ควรรู้](#พฤติกรรมที่ควรรู้)
@@ -813,6 +818,175 @@ app.onError((err, c) => {
 
 ---
 
+## Logger
+
+เปิดด้วย `app.logger(...)` แล้วทุก request จะได้
+
+- **id ของ request:** `correlation_id`, `request_id` และ `trace_id`/`span_id` (ถ้ามี `traceparent`) ติดไปกับทุกบรรทัด และส่งกลับใน response header
+- **detail log:** เขียนทันทีทุกครั้งที่เรียก `c.info(...)` ฯลฯ
+- **summary log:** 1 บรรทัดต่อ request สรุป status, เวลา, ผลลัพธ์ และ dependency ที่เรียก
+
+```ts
+const app = new App().logger({ path: 'logger.yaml' })             // อ่าน config จากไฟล์
+const app = new App().logger({ path: 'logger.yaml', format: 'text' }) // ค่าที่ส่งมาทับค่าในไฟล์
+const app = new App().logger({ format: 'logfmt', level: 'debug' }) // ไม่ใช้ไฟล์
+```
+
+### เปิดใช้ method ของ log (type)
+
+method ของ log บน `c` (`c.info`, `c.log()`, `c.addSummary`, `c.setDependency`, `c.flush` ฯลฯ) ใช้ได้เมื่อสร้าง app ด้วย `.logger(...)` ถ้าไม่มี handler ที่เขียน inline บน app นั้นจะเป็น **type error** (`This expression is not callable`)
+
+```ts
+const app = new App().logger({ path: 'logger.yaml' })   // ✅ ต้อง chain ใช้ app ที่ .logger() คืนมา
+app.get('/', (c) => c.info('hi').text('ok'))           // ✅
+
+const plain = new App()
+plain.get('/', (c) => c.info('hi').text('ok'))         // ❌ type error: ไม่มี logger
+
+const app2 = new App()
+app2.logger({ path: 'logger.yaml' })                   // ⚠️ type ของ app2 ไม่เปลี่ยน (TypeScript ทำไม่ได้)
+app2.get('/', (c) => c.info('hi').text('ok'))          // ❌ type error → ให้ chain แบบข้างบน
+```
+
+type ที่เขียนไว้ในไฟล์อื่น (`Ctx`, `ErrorHandler`, `MiddlewareHandler`, `App` ที่เป็น parameter ของ plugin) ถือว่ามี logger เสมอ ใช้ method ของ log ได้เลยโดยไม่ต้องประกาศอะไรเพิ่ม เพราะ TypeScript ไม่รู้ว่า controller จะถูกใส่ใน app ตัวไหน ถ้าเอาไปใช้กับ app ที่ไม่มี logger จะ throw `logger is not enabled` ตอนเรียก
+
+```ts
+// user.controller.ts
+create(c: Ctx<{ json: CreateUser }>) {
+  c.addSummary('user_id', 1)                           // ✅
+}
+```
+
+- sub-app ที่สร้างในไฟล์อื่นแล้วอยากเขียน log ใน handler inline ให้สร้างด้วย `new App<WithLogger>()` แล้ว mount เข้า app หลักที่มี `.logger(...)`
+- test ที่สร้าง app เองให้ใช้ `new App().logger({ level: 'silent' })` เพื่อไม่ให้มี log ออกมา
+- `c.requestId` / `c.correlationId` ใช้ได้เสมอ (เป็น `undefined` ถ้าไม่มี logger)
+
+### config
+
+ลำดับความสำคัญ (บนสุดชนะ): ค่าใน `app.logger({...})` > env `LOG_LEVEL` / `LOG_FORMAT` > ไฟล์ yaml > `name` / `version` จาก `package.json` ของแอพ
+
+```yaml
+service: user-service  # ไม่ใส่ = name จาก package.json, false = ไม่ใส่ฟิลด์
+version: 1.2.3         # ไม่ใส่ = version จาก package.json, false = ไม่ใส่ฟิลด์
+level: info            # debug | info | warn | error | silent (กรองเฉพาะ detail; silent ปิดทุกอย่าง)
+format: json           # json | logfmt | text
+skip: ['/health', '/metrics/*']   # มี id และ detail ได้ แต่ไม่เขียน summary
+ids:
+  generator: uuidv7    # uuidv7 (เรียงตามเวลา) | uuidv4
+  request:
+    header: x-request-id
+  correlation:
+    header: x-correlation-id
+  trace: true          # อ่าน W3C traceparent
+detail:
+  data: false          # true = เพิ่มฟิลด์ data (object) นอกจาก message (string)
+masks:
+  - field: body.*.password
+    pattern: full
+```
+
+ใน code มี option เพิ่ม 2 ตัวที่ใส่ใน yaml ไม่ได้: `sink: (line, record) => void` (ส่ง log ไปที่อื่นแทน stdout) และ `ids.generator: () => string`
+
+### detail log
+
+```ts
+c.info('validate ok', { id: 1 })     // คืน c → chain ต่อได้
+c.log().info('a').warn('b')          // c.log() คืน Logger → chain ต่อได้
+// มี debug / info / warn / error
+```
+
+```json
+{"time":"…","level":"info","type":"detail","service":"user-service","version":"1.2.3","correlation_id":"…","request_id":"…","action":"validate ok","message":"{\"id\":1}"}
+```
+
+- argument แรกเป็น `action` ส่วน argument ที่ 2 เป็น `message` ซึ่งเป็น string เสมอ (object → JSON, Error → `{name,message,stack}`, ไม่ส่ง → `""`)
+- เปิด `detail.data: true` จะได้ฟิลด์ `data` เป็น object เพิ่มด้วย
+
+### summary log
+
+```ts
+c.addSummary('user_id', 1)                                // ฟิลด์ชั้นบนสุดของ summary
+c.flush({ appResultCode: '20000' })                       // เขียน summary
+c.flushError(err, { appResultCode: '50001' })             // เขียน summary พร้อม error
+```
+
+```json
+{"type":"summary",…,"method":"POST","path":"/login","status":200,"duration_ms":3.2,"app_result":"success","app_result_code":"20000","user_id":1}
+```
+
+- 1 request เขียน summary ได้ครั้งเดียว `flush` ครั้งที่ 2 ไม่มีผล และถ้าไม่เรียกเลยจะ flush ให้อัตโนมัติตอนจบ request
+- เรียก `flush()` ใน handler ได้ แต่บรรทัดจริงจะถูกเขียนตอนจบ request เพื่อให้มี status และ `duration_ms` ครบ
+- `app_result` default คือ `error` ถ้า status >= 400 หรือมี error ไม่งั้น `success` ส่วน `app_result_code` default คือ HTTP status
+- level: `flushError()` ที่เรียกเอง หรือ status 5xx → `error`, 4xx → `warn`, อื่นๆ → `info`
+
+### dependency
+
+```ts
+const dependencyId = c.genId()
+c.setDependency({ dependency: 'mysql', dependencyId }).info('db_request', { email })
+const user = await db.findUser(email)
+c.setDependency({ dependency: 'mysql', desc: 'select user', resultCode: '20000', dependencyId })
+  .info('db_response', { rows: 1 })
+```
+
+- ฟิลด์ `dependency`, `desc`, `result_code`, `dependency_id` ติดเฉพาะบรรทัดถัดไปบรรทัดเดียว
+- ทุก dependency ถูกเก็บใน `dependencies` ของ summary บรรทัดที่มี `dependencyId` เดียวกันจะรวมเป็น entry เดียว
+
+### ฟิลด์เพิ่มเติม
+
+```ts
+c.log().update('session_id', id)          // ชั้นบนสุด ทุกบรรทัดหลังจากนี้ (detail + summary)
+c.addDetailAdditionalInfo('channel', 'web') // additional_info ของทุก detail หลังจากนี้
+c.addSummaryAdditionalInfo('campaign', 'x') // additional_info ของ summary
+c.addDetailAdditionalInfo('channel', undefined) // ลบ key
+c.clearDetailAdditionalInfo()               // ลบทั้งหมด (มี clearSummaryAdditionalInfo ด้วย)
+```
+
+`update()` และ `addSummary()` ใช้ชื่อฟิลด์ที่ระบบใช้อยู่แล้ว (`status`, `request_id`, `action` ฯลฯ) ไม่ได้ จะ throw
+
+### mask ข้อมูล
+
+```ts
+c.maskInfo([{ field: 'body.*.password', pattern: 'full' }], 'login', { body })
+```
+
+| `field` | ความหมาย |
+|---|---|
+| `body.password` | ตาม path |
+| `body.*.password` | ทุก element ของ array (หรือทุก key ของ object) |
+| `body.[0].phone` / `body[0].phone` | เฉพาะ index 0 |
+
+| `pattern` | ผล |
+|---|---|
+| `full` | `****` |
+| `last4` / `first4` | `************1111` / `0812******` |
+| `email` | `j***@x.com` |
+| `card` | `411111******1111` |
+| `custom` + `regex` (+ `replacement`, default `*`) | แทนทุกตัวที่ match เช่น `regex: '\d(?=\d{4})'` → `******5678` |
+| ค่าอื่น | ใช้ค่านั้นแทนตรงๆ |
+
+mask ใน config ใช้กับทุก log (data, `additional_info`, ฟิลด์ของ summary) ส่วน `maskInfo` / `maskDebug` / `maskWarn` / `maskError` ใช้เพิ่มเฉพาะบรรทัดนั้น ใช้ `maskData(data, rules)` เพื่อ mask ข้อมูลนอก logger ได้
+
+### ส่ง id ต่อไปยัง service อื่น
+
+```ts
+await fetch('http://order-service/orders', { headers: { ...c.log().propagationHeaders() } })
+// { 'x-correlation-id': '…', traceparent: '00-<trace_id>-<span_id>-01' }
+```
+
+ไม่ส่ง `x-request-id` เพราะ service ปลายทางควรสร้างของตัวเอง ค่า id จาก header ที่ยาวเกิน 128 ตัวอักษรหรือมีตัวอักษรนอก `A-Z a-z 0-9 - _ . :` จะถูกทิ้งแล้วสร้างใหม่ (กัน log injection)
+
+### ใช้นอก request
+
+```ts
+import { createLogger } from '@sing3demons/kp'
+const log = createLogger({ format: 'logfmt' })
+log.info('job started').addSummary('items', 10).flush()
+```
+
+
+---
+
 ## Node adapter
 
 ปกติใช้ `app.start()` ก็พอ แต่ถ้าต้องการควบคุม server ของ Node เอง ใช้ `@sing3demons/kp/node` ได้:
@@ -857,6 +1031,11 @@ adapter แปลง `IncomingMessage` เป็น `Request` และ `Respons
 | `ValidationTarget`, `ValidationTargets` | `'json' \| 'form' \| 'query' \| 'param' \| 'header'` และรูปแบบข้อมูลดิบของแต่ละ target |
 | `StandardSchemaV1` | interface ของ Standard Schema |
 | `Method` | `'GET' \| 'POST' \| ...` |
+| `LoggerOptions`, `AppLoggerOptions` | option ของ `createLogger()` / `app.logger()` |
+| `LogRecord`, `Sink`, `LogLevel`, `LogFormat`, `LogType` | record ที่เขียนและปลายทางของ log |
+| `MaskRule`, `MaskPreset` | กฎของ mask |
+| `DependencyInfo`, `FlushOptions`, `FlushErrorOptions` | argument ของ `setDependency()` / `flush()` / `flushError()` |
+| `WithLogger`, `Env` | type ของ app ที่มี logger เช่น `new App<WithLogger>()` (ดู [Logger](#เปิดใช้-method-ของ-log-type)) |
 
 ตัวอย่าง middleware ที่นำไปใช้ซ้ำได้:
 
@@ -874,7 +1053,7 @@ export const requireApiKey = (key: string): MiddlewareHandler => async (c, next)
 ## พฤติกรรมที่ควรรู้
 
 - **ลำดับ middleware:** ทุก middleware ที่ประกาศด้วย `use()` และ path ตรงจะรัน**ก่อน** route handler เสมอ (เรียงตามลำดับที่ลงทะเบียน) ไม่ว่าจะลงทะเบียนก่อนหรือหลัง route ก็ตาม
-- **middleware รันกับ 404 ด้วย:** เช่น logger จะเห็น request ที่หา route ไม่เจอด้วย
+- **middleware รันกับ 404 ด้วย:** middleware จะเห็น request ที่หา route ไม่เจอด้วย (summary log ก็มีบรรทัดของ 404)
 - **path ตรงแต่ method ไม่ตรง:** ตอบ `404` ไม่ใช่ `405`
 - **`HEAD`:** ใช้ handler ของ `GET` แล้วตัด body ทิ้งให้อัตโนมัติ
 - **trailing slash ไม่มีผล:** `/users/` กับ `/users` match route เดียวกัน
@@ -895,11 +1074,10 @@ export const requireApiKey = (key: string): MiddlewareHandler => async (c, next)
 
 ```
 src/
-├── main.ts                    # new App() → use / onError / register(userRoutes) → start()
+├── main.ts                    # new App().logger() → onError / register(userRoutes) → start()
 ├── config.ts
 ├── lib/kp.ts                  # จุด import framework จุดเดียว
 ├── middleware/
-│   ├── logger.ts
 │   └── error.ts               # errorHandler (HTTPException / ValidationError) + notFoundHandler
 └── modules/users/
     ├── user.schema.ts         # zod schemas + types
@@ -908,6 +1086,7 @@ src/
     ├── user.controller.ts     # method ละ endpoint ใช้ Ctx<...> และ safeQuery
     ├── user.routes.ts         # route + validator + controller → userRoutes
     └── index.ts
+logger.yaml                    # config ของ app.logger() (ดู [Logger](#logger))
 ```
 
 จาก root ของ repo:
