@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@sing3demons/kp": "^3.0.1",
-    "@sing3demons/kp-logger": "^1.0.0"
+    "@sing3demons/kp-logger": "^1.0.0",
+    "zod": "^4.1.0"
   }
 }

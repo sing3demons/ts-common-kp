@@ -1067,19 +1067,17 @@ export const requireApiKey = (key: string): MiddlewareHandler => async (c, next)
 
 ## ตัวอย่างโปรเจกต์
 
-ดูตัวอย่างเต็มได้ที่ [`examples/`](examples/) มี 2 app ที่โครงสร้างเหมือนกัน:
+ดูตัวอย่างเต็มได้ที่ [`examples/`](examples/) มี 2 app ที่โครงสร้างเหมือนกัน แต่ละตัวเป็นโปรเจกต์แยกที่ติดตั้ง `@sing3demons/kp` และ `@sing3demons/kp-logger` จาก GitHub Packages:
 
-| | runtime | รัน | test |
-|---|---|---|---|
-| [`examples/bun-app`](examples/bun-app) | Bun | `bun run dev` | `bun test` |
-| [`examples/node-app`](examples/node-app) | Node + tsx | `npm run dev` | `npm test` (`node:test`) |
+| | runtime | รัน | test | Docker |
+|---|---|---|---|---|
+| [`examples/bun-app`](examples/bun-app) | Bun | `bun run dev` | `bun test` | [`Dockerfile`](examples/bun-app/Dockerfile) |
+| [`examples/node-app`](examples/node-app) | Node + tsx | `npm run dev` | `npm test` (`node:test`) | [`Dockerfile`](examples/node-app/Dockerfile) |
 
 ```
 src/
-├── main.ts                    # import logger → new App() → logger / onError / register(userRoutes) → start()
-├── config.ts
-├── lib/kp.ts                  # จุด import framework จุดเดียว
-├── lib/kp-logger.ts           # = import '@sing3demons/kp-logger' (ชี้ไปที่ packages/kp-logger/src)
+├── main.ts                    # import '@sing3demons/kp-logger' → new App() → logger / onError / register(userRoutes) → start()
+├── config.ts                  # PORT
 ├── middleware/
 │   └── error.ts               # errorHandler (HTTPException / ValidationError) + notFoundHandler
 └── modules/users/
@@ -1090,14 +1088,28 @@ src/
     ├── user.routes.ts         # route + validator + controller → userRoutes
     └── index.ts
 logger.yaml                    # config ของ app.logger() (ดู [Logger](#logger))
+Dockerfile, .dockerignore
 ```
 
-จาก root ของ repo:
+### รันด้วย Docker
+
+build จาก directory ของ example นั้น ต้องมี token ที่มีสิทธิ์ `read:packages` เพื่อดึง `@sing3demons/*` จาก GitHub Packages:
 
 ```sh
-bun run example:bun      # examples/bun-app
-bun run example:node     # examples/node-app (tsx)
+cd examples/node-app                # หรือ examples/bun-app
+export GITHUB_TOKEN=ghp_xxx         # หรือ export GITHUB_TOKEN=$(gh auth token -u sing3demons)
+docker build --secret id=github_token,env=GITHUB_TOKEN -t kp-node-app .
+docker run --rm --init -p 3000:3000 kp-node-app
+
+curl localhost:3000/health          # {"status":"ok"}
 ```
+
+- **token ไม่ติดไปกับ image:** ส่งเข้าแบบ BuildKit secret (`--secret`) ใช้แค่ตอน `npm ci` แล้วลบ `.npmrc` ทิ้งใน step เดียวกัน และ `.dockerignore` กัน `.npmrc` ในเครื่อง (ที่อาจมี token) ไม่ให้ถูกส่งเข้า build
+- **2 stage:** stage แรกติดตั้ง dependency ด้วย `npm ci` จาก `package-lock.json` ส่วน image สุดท้ายมีแค่ `node_modules`, `src/`, `logger.yaml` รันด้วย user ที่ไม่ใช่ root (`node` / `bun`)
+- **node-app:** ใช้ `tsx` รัน TypeScript ตรงๆ (มี decorator และ parameter property ที่ Node รันเองไม่ได้) จึงติดตั้ง devDependency ด้วย
+- **bun-app:** ติดตั้งด้วย npm แล้วรันบน `oven/bun:1.3-alpine`
+- **config:** เปลี่ยน port ด้วย `-e PORT=8080 -p 8080:8080` และเปลี่ยนรูปแบบ log ด้วย `-e LOG_FORMAT=text` หรือ `-e LOG_LEVEL=debug`
+- **health check:** มี `HEALTHCHECK` เรียก `/health` ให้แล้ว และควรใส่ `--init` เพื่อให้ process รับ `Ctrl+C` / `docker stop` ได้ถูกต้อง
 
 ---
 

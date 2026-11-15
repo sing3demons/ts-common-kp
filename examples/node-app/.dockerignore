@@ -1,0 +1,7 @@
+# never send local credentials or installs into the build
+.npmrc
+node_modules
+test
+Dockerfile
+.dockerignore
+*.log

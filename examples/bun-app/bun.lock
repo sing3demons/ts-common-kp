@@ -1,0 +1,23 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "kp-bun-app",
+      "dependencies": {
+        "@sing3demons/kp": "^3.0.1",
+        "@sing3demons/kp-logger": "^1.0.0",
+        "zod": "^4.1.0",
+      },
+    },
+  },
+  "packages": {
+    "@sing3demons/kp": ["@sing3demons/kp@3.0.1", "https://npm.pkg.github.com/download/@sing3demons/kp/3.0.1/d2e62dcc1bbbe673af3a1a410394ea7bd5cddbb1", { "bin": { "kp": "dist/cli/index.js" } }, "sha512-w7FMay9JVnRoZIDypkrSjXhC0IQ4tCYaQWpLjPrubC0LzT+C3nH1ZUpmz2CI1GA4qwfjAMkOvB/xUtfKS0Ox/Q=="],
+
+    "@sing3demons/kp-logger": ["@sing3demons/kp-logger@1.0.0", "https://npm.pkg.github.com/download/@sing3demons/kp-logger/1.0.0/6685cb8d12bebb6a4a22581bba5dbd24aca203c8", { "dependencies": { "yaml": "^2.9.1" }, "peerDependencies": { "@sing3demons/kp": "^3.0.0" } }, "sha512-nZmTP11RE3D648iFn3hFnDtFmUuVsLoFvZd6j5FI4n1P0C7y/1WtHxPR+Fs20iFdOC5f5G0T5+XPYryPlmPBLQ=="],
+
+    "yaml": ["yaml@2.9.1", "", { "bin": { "yaml": "bin.mjs" } }, "sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw=="],
+
+    "zod": ["zod@4.6.7", "", {}, "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg=="],
+  }
+}
