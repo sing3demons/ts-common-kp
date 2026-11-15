@@ -1,4 +1,4 @@
-import { App, validator } from '../../lib/kp.ts'
+import { App, validator } from '@sing3demons/kp'
 import { UserController } from './user.controller.ts'
 import { UserRepository } from './user.repository.ts'
 import { CreateUserSchema, UpdateUserSchema, UserIdSchema } from './user.schema.ts'

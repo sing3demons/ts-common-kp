@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import { beforeEach, describe, test } from 'node:test'
-import { App } from '../src/lib/kp.ts'
+import { App } from '@sing3demons/kp'
 import { errorHandler, notFoundHandler } from '../src/middleware/error.ts'
 import { createUserRoutes } from '../src/modules/users/index.ts'
-import '../src/lib/kp-logger.ts'
+import '@sing3demons/kp-logger'
 
 const json = (method: string, body: unknown) => ({
   method,

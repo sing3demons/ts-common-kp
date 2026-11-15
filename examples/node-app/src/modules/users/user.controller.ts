@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Patch, Post, validator, type Ctx } from '../../lib/kp.ts'
+import { Controller, Delete, Get, Patch, Post, validator, type Ctx } from '@sing3demons/kp'
 import {
   CreateUserSchema,
   UpdateUserSchema,
@@ -16,7 +16,7 @@ const param = validator('param', UserIdSchema)
 @Controller('/users')
 export class UserController {
   constructor(private readonly service: UserService) { }
-  
+
   // listAndSearch(c: Ctx) {
   //   const query: IUserQuery = c.safeQuery(UserQuerySchema)
   //   const limit = Number(c.req.query('limit') ?? 10)

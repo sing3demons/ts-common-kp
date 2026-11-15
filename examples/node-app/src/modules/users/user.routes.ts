@@ -1,4 +1,4 @@
-import { App } from '../../lib/kp.ts'
+import { App } from '@sing3demons/kp'
 import { UserController } from './user.controller.ts'
 import { UserRepository } from './user.repository.ts'
 import { UserService } from './user.service.ts'

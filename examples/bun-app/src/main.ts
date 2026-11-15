@@ -1,5 +1,5 @@
-import './lib/kp-logger.ts' // ติดตั้ง logger: เปิด app.logger() และ c.info() / c.addSummary() / ...
-import { App } from './lib/kp.ts'
+import '@sing3demons/kp-logger' // ติดตั้ง logger: เปิด app.logger() และ c.info() / c.addSummary() / ...
+import { App } from '@sing3demons/kp'
 import { config } from './config.ts'
 import { errorHandler, notFoundHandler } from './middleware/error.ts'
 import { userRoutes } from './modules/users/index.ts'

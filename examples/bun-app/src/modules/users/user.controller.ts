@@ -1,9 +1,9 @@
-import type { Ctx } from '../../lib/kp.ts'
+import type { Ctx } from '@sing3demons/kp'
 import { UserQuerySchema, type CreateUser, type IUserQuery, type UpdateUser, type UserId } from './user.schema.ts'
 import type { UserService } from './user.service.ts'
 
 export class UserController {
-  constructor(private readonly service: UserService) {}
+  constructor(private readonly service: UserService) { }
 
   list(c: Ctx) {
     const query: IUserQuery = c.safeQuery(UserQuerySchema)

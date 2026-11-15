@@ -1,9 +1,9 @@
-import { HTTPException } from '../../lib/kp.ts'
+import { HTTPException } from '@sing3demons/kp'
 import type { UserRepository } from './user.repository.ts'
 import type { CreateUser, UpdateUser, User } from './user.schema.ts'
 
 export class UserService {
-  constructor(private readonly repo: UserRepository) {}
+  constructor(private readonly repo: UserRepository) { }
 
   list(limit: number): User[] {
     return this.repo.findAll(limit)
