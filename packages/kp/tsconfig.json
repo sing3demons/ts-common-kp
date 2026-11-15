@@ -17,6 +17,6 @@
     // Dev resolution: add-ons in packages/ import the core from source.
     "paths": { "@sing3demons/kp": ["./src/index.ts"] }
   },
-  "include": ["src", "test", "packages/*/src", "packages/*/test"],
+  "include": ["src", "test", "../kp-logger/src", "../kp-logger/test"],
   "exclude": ["test/no-logger"]
 }

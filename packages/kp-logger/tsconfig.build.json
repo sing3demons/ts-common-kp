@@ -1,14 +1,14 @@
 {
-  // Build against the core's published types (`npm --prefix ../.. run build` first),
+  // Build against the core's published types (`npm --prefix ../kp run build` first),
   // so the output keeps importing `@sing3demons/kp` as a peer dependency.
-  "extends": "../../tsconfig.json",
+  "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": false,
     "declaration": true,
     "outDir": "dist",
     "rootDir": "src",
     "types": ["node"],
-    "paths": { "@sing3demons/kp": ["../../dist/index.d.ts"] }
+    "paths": { "@sing3demons/kp": ["../kp/dist/index.d.ts"] }
   },
   "include": ["src"],
   "exclude": []

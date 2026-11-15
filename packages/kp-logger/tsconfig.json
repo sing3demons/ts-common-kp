@@ -1,0 +1,9 @@
+{
+  // Dev resolution: import the core from source (sibling package).
+  "extends": "../kp/tsconfig.json",
+  "compilerOptions": {
+    "paths": { "@sing3demons/kp": ["../kp/src/index.ts"] }
+  },
+  "include": ["src", "test"],
+  "exclude": []
+}

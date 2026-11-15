@@ -35,11 +35,8 @@
   ],
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p examples && tsc --noEmit -p test/no-logger",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p ../../examples && tsc --noEmit -p test/no-logger",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
-    "example:bun": "bun examples/bun-app/src/main.ts",
-    "example:node": "tsx examples/node-app/src/main.ts",
-    "test:node-app": "cd examples/node-app && tsx --test test/*.node-test.ts",
     "prepublishOnly": "bun test && bun run typecheck && bun run build",
     "cli": "bun src/cli/index.ts"
   },

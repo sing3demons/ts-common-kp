@@ -31,8 +31,10 @@
     "dist"
   ],
   "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
-    "prepublishOnly": "npm --prefix ../.. test && npm --prefix ../.. run typecheck && npm --prefix ../.. run build && npm run build"
+    "prepublishOnly": "npm --prefix ../kp test && npm --prefix ../kp run typecheck && npm test && npm run typecheck && npm --prefix ../kp run build && npm run build"
   },
   "peerDependencies": {
     "@sing3demons/kp": "^3.0.0"
