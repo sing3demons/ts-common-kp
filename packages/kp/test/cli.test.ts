@@ -60,6 +60,6 @@ describe('cli scaffold', () => {
 })
 
 test('KP_LOGGER_VERSION matches packages/kp-logger', () => {
-  const logger = JSON.parse(readFileSync(join(import.meta.dir, '../packages/kp-logger/package.json'), 'utf8'))
+  const logger = JSON.parse(readFileSync(join(import.meta.dir, '../../kp-logger/package.json'), 'utf8'))
   expect(KP_LOGGER_VERSION).toBe(`^${logger.version}`)
 })
